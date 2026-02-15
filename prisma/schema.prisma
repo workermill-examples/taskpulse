@@ -1,0 +1,250 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Enums
+enum MemberRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+enum RunStatus {
+  QUEUED
+  EXECUTING
+  COMPLETED
+  FAILED
+  CANCELLED
+  TIMED_OUT
+}
+
+enum LogLevel {
+  DEBUG
+  INFO
+  WARN
+  ERROR
+}
+
+enum ScheduleStatus {
+  ACTIVE
+  PAUSED
+  DISABLED
+}
+
+// Models
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique @db.VarChar(255)
+  name         String   @db.VarChar(255)
+  passwordHash String   @db.VarChar(255)
+  createdAt    DateTime @default(now()) @db.Timestamptz
+  updatedAt    DateTime @updatedAt @db.Timestamptz
+
+  // Relations
+  memberships ProjectMember[]
+  createdRuns Run[]
+  logs        Log[]
+
+  @@map("users")
+}
+
+model Project {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @db.VarChar(255)
+  slug        String   @unique @db.VarChar(100)
+  description String?  @db.Text
+  settings    Json     @default("{}")
+  createdAt   DateTime @default(now()) @db.Timestamptz
+  updatedAt   DateTime @updatedAt @db.Timestamptz
+
+  // Relations
+  members   ProjectMember[]
+  tasks     Task[]
+  runs      Run[]
+  schedules Schedule[]
+  apiKeys   ApiKey[]
+  webhooks  Webhook[]
+
+  @@map("projects")
+}
+
+model ProjectMember {
+  id        String     @id @default(uuid()) @db.Uuid
+  projectId String     @db.Uuid
+  userId    String     @db.Uuid
+  role      MemberRole @default(MEMBER)
+  createdAt DateTime   @default(now()) @db.Timestamptz
+  updatedAt DateTime   @updatedAt @db.Timestamptz
+
+  // Relations
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@map("project_members")
+}
+
+model Task {
+  id          String   @id @default(uuid()) @db.Uuid
+  projectId   String   @db.Uuid
+  name        String   @db.VarChar(255)
+  slug        String   @db.VarChar(100)
+  description String?  @db.Text
+  metadata    Json     @default("{}")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now()) @db.Timestamptz
+  updatedAt   DateTime @updatedAt @db.Timestamptz
+
+  // Relations
+  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  runs      Run[]
+  schedules Schedule[]
+
+  @@unique([projectId, slug])
+  @@map("tasks")
+}
+
+model Run {
+  id          String    @id @default(uuid()) @db.Uuid
+  projectId   String    @db.Uuid
+  taskId      String    @db.Uuid
+  createdById String?   @db.Uuid
+  status      RunStatus @default(QUEUED)
+  input       Json?
+  output      Json?
+  error       String?   @db.Text
+  startedAt   DateTime? @db.Timestamptz
+  completedAt DateTime? @db.Timestamptz
+  duration    Int?      // milliseconds
+  createdAt   DateTime  @default(now()) @db.Timestamptz
+  updatedAt   DateTime  @updatedAt @db.Timestamptz
+
+  // Relations
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task      Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  createdBy User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  logs      Log[]
+  traces    Trace[]
+
+  @@map("runs")
+}
+
+model Log {
+  id        String   @id @default(uuid()) @db.Uuid
+  runId     String   @db.Uuid
+  userId    String?  @db.Uuid
+  level     LogLevel
+  message   String   @db.Text
+  metadata  Json?
+  timestamp DateTime @default(now()) @db.Timestamptz
+
+  // Relations
+  run  Run   @relation(fields: [runId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("logs")
+}
+
+model Trace {
+  id         String   @id @default(uuid()) @db.Uuid
+  runId      String   @db.Uuid
+  name       String   @db.VarChar(255)
+  startTime  DateTime @db.Timestamptz
+  endTime    DateTime? @db.Timestamptz
+  duration   Int?     // milliseconds
+  status     String?  @db.VarChar(50)
+  metadata   Json?
+  parentId   String?  @db.Uuid
+  createdAt  DateTime @default(now()) @db.Timestamptz
+
+  // Relations
+  run      Run     @relation(fields: [runId], references: [id], onDelete: Cascade)
+  parent   Trace?  @relation("TraceHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children Trace[] @relation("TraceHierarchy")
+
+  @@map("traces")
+}
+
+model Schedule {
+  id          String         @id @default(uuid()) @db.Uuid
+  projectId   String         @db.Uuid
+  taskId      String         @db.Uuid
+  name        String         @db.VarChar(255)
+  cronPattern String         @db.VarChar(100)
+  timezone    String         @default("UTC") @db.VarChar(50)
+  status      ScheduleStatus @default(ACTIVE)
+  input       Json?
+  nextRunAt   DateTime?      @db.Timestamptz
+  lastRunAt   DateTime?      @db.Timestamptz
+  createdAt   DateTime       @default(now()) @db.Timestamptz
+  updatedAt   DateTime       @updatedAt @db.Timestamptz
+
+  // Relations
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task    Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, name])
+  @@map("schedules")
+}
+
+model ApiKey {
+  id          String   @id @default(uuid()) @db.Uuid
+  projectId   String   @db.Uuid
+  name        String   @db.VarChar(255)
+  keyHash     String   @unique @db.VarChar(255)
+  keyPreview  String   @db.VarChar(20) // first few chars for UI display
+  permissions Json     @default("{}")
+  expiresAt   DateTime? @db.Timestamptz
+  lastUsedAt  DateTime? @db.Timestamptz
+  createdAt   DateTime @default(now()) @db.Timestamptz
+  updatedAt   DateTime @updatedAt @db.Timestamptz
+
+  // Relations
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, name])
+  @@map("api_keys")
+}
+
+model Webhook {
+  id        String   @id @default(uuid()) @db.Uuid
+  projectId String   @db.Uuid
+  name      String   @db.VarChar(255)
+  url       String   @db.VarChar(2048)
+  eventTypes Json     // array of event types to subscribe to
+  secret    String?  @db.VarChar(255) // for signature verification
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  // Relations
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  events  WebhookEvent[]
+
+  @@unique([projectId, name])
+  @@map("webhooks")
+}
+
+model WebhookEvent {
+  id          String   @id @default(uuid()) @db.Uuid
+  webhookId   String   @db.Uuid
+  eventType   String   @db.VarChar(100)
+  payload     Json
+  response    Json?
+  status      String   @db.VarChar(50) // success, failed, pending
+  attempts    Int      @default(1)
+  nextRetryAt DateTime? @db.Timestamptz
+  createdAt   DateTime @default(now()) @db.Timestamptz
+  updatedAt   DateTime @updatedAt @db.Timestamptz
+
+  // Relations
+  webhook Webhook @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  @@map("webhook_events")
+}
