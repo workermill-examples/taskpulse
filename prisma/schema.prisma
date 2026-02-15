@@ -1,0 +1,291 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Enums
+enum MemberRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+enum RunStatus {
+  QUEUED
+  EXECUTING
+  COMPLETED
+  FAILED
+  CANCELLED
+  TIMED_OUT
+}
+
+enum LogLevel {
+  DEBUG
+  INFO
+  WARN
+  ERROR
+}
+
+enum ScheduleStatus {
+  ACTIVE
+  PAUSED
+  DISABLED
+}
+
+// Models
+model User {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email        String    @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // Relations
+  projectMembers ProjectMember[]
+  createdTasks   Task[]
+  createdRuns    Run[]
+  createdApiKeys ApiKey[]
+  createdWebhooks Webhook[]
+
+  @@map("users")
+}
+
+model Project {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String
+  slug        String    @unique
+  description String?
+  settings    Json      @default("{}")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  members   ProjectMember[]
+  tasks     Task[]
+  runs      Run[]
+  schedules Schedule[]
+  apiKeys   ApiKey[]
+  webhooks  Webhook[]
+
+  @@map("projects")
+}
+
+model ProjectMember {
+  id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  role      MemberRole @default(MEMBER)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  // Foreign keys
+  userId    String  @db.Uuid
+  projectId String  @db.Uuid
+
+  // Relations
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectId])
+  @@map("project_members")
+}
+
+model Task {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String
+  description String?
+  handler     String    // Function/method name
+  config      Json      @default("{}")
+  timeout     Int?      // Milliseconds
+  retryLimit  Int       @default(0)
+  priority    Int       @default(0)
+  tags        String[]  @default([])
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Foreign keys
+  projectId String @db.Uuid
+  createdBy String @db.Uuid
+
+  // Relations
+  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  creator   User       @relation(fields: [createdBy], references: [id])
+  runs      Run[]
+  schedules Schedule[]
+
+  @@index([projectId, isActive])
+  @@index([projectId, createdAt])
+  @@map("tasks")
+}
+
+model Run {
+  id          String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  status      RunStatus  @default(QUEUED)
+  input       Json?
+  output      Json?
+  error       String?
+  duration    Int?       // Milliseconds
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  // Foreign keys
+  projectId String @db.Uuid
+  taskId    String @db.Uuid
+  createdBy String @db.Uuid
+
+  // Relations
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task    Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  creator User    @relation(fields: [createdBy], references: [id])
+  logs    Log[]
+  traces  Trace[]
+
+  @@index([projectId, status])
+  @@index([projectId, createdAt])
+  @@index([taskId, status])
+  @@map("runs")
+}
+
+model Log {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  level     LogLevel
+  message   String
+  metadata  Json?
+  timestamp DateTime @default(now())
+
+  // Foreign keys
+  runId String @db.Uuid
+
+  // Relations
+  run Run @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId, timestamp])
+  @@index([level, timestamp])
+  @@map("logs")
+}
+
+model Trace {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String
+  type      String    // span, event, etc.
+  startTime DateTime
+  endTime   DateTime?
+  duration  Int?      // Milliseconds
+  status    String?   // success, error, etc.
+  metadata  Json?
+  createdAt DateTime  @default(now())
+
+  // Foreign keys
+  runId    String  @db.Uuid
+  parentId String? @db.Uuid // Self-referential for hierarchical traces
+
+  // Relations
+  run      Run     @relation(fields: [runId], references: [id], onDelete: Cascade)
+  parent   Trace?  @relation("TraceHierarchy", fields: [parentId], references: [id])
+  children Trace[] @relation("TraceHierarchy")
+
+  @@index([runId, startTime])
+  @@index([parentId])
+  @@map("traces")
+}
+
+model Schedule {
+  id          String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String
+  description String?
+  cronExpr    String         // Cron expression
+  timezone    String         @default("UTC")
+  input       Json?          // Default input for scheduled runs
+  status      ScheduleStatus @default(ACTIVE)
+  nextRunAt   DateTime?
+  lastRunAt   DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  // Foreign keys
+  projectId String @db.Uuid
+  taskId    String @db.Uuid
+
+  // Relations
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task    Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, status])
+  @@index([nextRunAt])
+  @@map("schedules")
+}
+
+model ApiKey {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String
+  keyHash     String    @unique // Hashed API key
+  keyPreview  String    // Last 4 characters for UI display
+  permissions Json      @default("{}")
+  expiresAt   DateTime?
+  lastUsedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Foreign keys
+  projectId String @db.Uuid
+  createdBy String @db.Uuid
+
+  // Relations
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  creator User    @relation(fields: [createdBy], references: [id])
+
+  @@index([projectId])
+  @@map("api_keys")
+}
+
+model Webhook {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String
+  url       String
+  events    String[]  // Array of event types to listen for
+  secret    String?   // Secret for signature verification
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  // Foreign keys
+  projectId String @db.Uuid
+  createdBy String @db.Uuid
+
+  // Relations
+  project     Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  creator     User           @relation(fields: [createdBy], references: [id])
+  deliveries  WebhookEvent[]
+
+  @@index([projectId, isActive])
+  @@map("webhooks")
+}
+
+model WebhookEvent {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  eventType    String
+  payload      Json
+  response     String?
+  statusCode   Int?
+  deliveredAt  DateTime?
+  nextRetryAt  DateTime?
+  retryCount   Int       @default(0)
+  createdAt    DateTime  @default(now())
+
+  // Foreign keys
+  webhookId String @db.Uuid
+
+  // Relations
+  webhook Webhook @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  @@index([webhookId, createdAt])
+  @@index([nextRetryAt])
+  @@map("webhook_events")
+}
