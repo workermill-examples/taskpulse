@@ -12,10 +12,9 @@ import type {
   Task,
   Run,
   Trace,
-  Log,
-  RunStatus,
-  LogLevel
+  Log
 } from "../generated/prisma/client";
+import { RunStatus, LogLevel } from "../generated/prisma/enums";
 
 export interface SimulatedRun {
   run: Omit<Run, 'id' | 'createdAt' | 'updatedAt'>;
@@ -73,7 +72,7 @@ export function simulateRun(
 
   let currentTime = new Date(now.getTime() + 100); // Start slightly after run creation
   let totalDuration = 0;
-  let runStatus: RunStatus = 'COMPLETED';
+  let runStatus: RunStatus = RunStatus.COMPLETED;
   let runError: string | null = null;
 
   // Generate traces and logs for each step
@@ -112,7 +111,7 @@ export function simulateRun(
     // Generate logs for this step
     const stepStartLog: Omit<Log, 'id'> = {
       runId: '', // Will be filled by caller
-      level: 'INFO' as LogLevel,
+      level: LogLevel.INFO,
       message: `Starting ${stepName}...`,
       metadata: { stepIndex: i, stepName },
       timestamp: stepStartTime
@@ -133,7 +132,7 @@ export function simulateRun(
 
       const errorLog: Omit<Log, 'id'> = {
         runId: '', // Will be filled by caller
-        level: 'ERROR' as LogLevel,
+        level: LogLevel.ERROR,
         message: `Step '${stepName}' failed: ${errorMessage}`,
         metadata: {
           stepIndex: i,
@@ -145,7 +144,7 @@ export function simulateRun(
       };
       logs.push(errorLog);
 
-      runStatus = 'FAILED';
+      runStatus = RunStatus.FAILED;
       runError = `Step '${stepName}' failed: ${errorMessage}`;
       totalDuration = errorTime.getTime() - now.getTime() - 100;
       break;
@@ -168,7 +167,7 @@ export function simulateRun(
 
         const progressLog: Omit<Log, 'id'> = {
           runId: '', // Will be filled by caller
-          level: 'DEBUG' as LogLevel,
+          level: LogLevel.DEBUG,
           message: progressMessages[Math.floor(Math.random() * progressMessages.length)],
           metadata: {
             stepIndex: i,
@@ -183,7 +182,7 @@ export function simulateRun(
       // Step completion log
       const completionLog: Omit<Log, 'id'> = {
         runId: '', // Will be filled by caller
-        level: 'INFO' as LogLevel,
+        level: LogLevel.INFO,
         message: `Completed ${stepName} in ${duration}ms`,
         metadata: {
           stepIndex: i,
@@ -202,7 +201,7 @@ export function simulateRun(
 
   // Calculate run times
   const runStartTime = new Date(now.getTime() + 50); // Slight delay after creation
-  const runEndTime = runStatus === 'FAILED' ?
+  const runEndTime = runStatus === RunStatus.FAILED ?
     new Date(now.getTime() + 50 + totalDuration) :
     new Date(runStartTime.getTime() + totalDuration);
 
@@ -213,11 +212,11 @@ export function simulateRun(
     createdBy: '', // Will be filled by caller
     status: runStatus,
     input: input ? JSON.parse(JSON.stringify(input)) : null,
-    output: runStatus === 'COMPLETED' ? generateOutput(task, input) : null,
+    output: runStatus === RunStatus.COMPLETED ? generateOutput(task, input) : null,
     error: runError,
     duration: totalDuration,
     startedAt: runStartTime,
-    completedAt: runStatus === 'COMPLETED' || runStatus === 'FAILED' ? runEndTime : null,
+    completedAt: runStatus === RunStatus.COMPLETED || runStatus === RunStatus.FAILED ? runEndTime : null,
   };
 
   return {
@@ -283,7 +282,7 @@ export function simulateQueuedRun(
     projectId,
     taskId: task.id,
     createdBy: '', // Will be filled by caller
-    status: 'QUEUED',
+    status: RunStatus.QUEUED,
     input: input ? JSON.parse(JSON.stringify(input)) : null,
     output: null,
     error: null,
@@ -295,7 +294,7 @@ export function simulateQueuedRun(
   // Generate initial queued log
   const logs: Array<Omit<Log, 'id'>> = [{
     runId: '', // Will be filled by caller
-    level: 'INFO' as LogLevel,
+    level: LogLevel.INFO,
     message: `Run queued for task: ${task.name}`,
     metadata: {
       taskName: task.name,
@@ -345,7 +344,7 @@ export function simulateExecutingRun(
   // Add initial log
   logs.push({
     runId: '', // Will be filled by caller
-    level: 'INFO' as LogLevel,
+    level: LogLevel.INFO,
     message: `Started execution of task: ${task.name}`,
     metadata: { taskName: task.name, triggeredBy },
     timestamp: runStartTime
@@ -372,7 +371,7 @@ export function simulateExecutingRun(
 
     logs.push({
       runId: '', // Will be filled by caller
-      level: 'INFO' as LogLevel,
+      level: LogLevel.INFO,
       message: `Completed ${stepTemplate.name} in ${duration}ms`,
       metadata: { stepIndex: i, stepName: stepTemplate.name, duration },
       timestamp: stepEndTime
@@ -400,7 +399,7 @@ export function simulateExecutingRun(
 
     logs.push({
       runId: '', // Will be filled by caller
-      level: 'INFO' as LogLevel,
+      level: LogLevel.INFO,
       message: `Starting ${currentStep.name}...`,
       metadata: { stepIndex: currentStepIndex, stepName: currentStep.name },
       timestamp: stepStartTime
@@ -410,7 +409,7 @@ export function simulateExecutingRun(
     const progressTime = new Date(stepStartTime.getTime() + Math.floor(Math.random() * 10000) + 1000);
     logs.push({
       runId: '', // Will be filled by caller
-      level: 'DEBUG' as LogLevel,
+      level: LogLevel.DEBUG,
       message: `${currentStep.name}: processing in progress...`,
       metadata: { stepIndex: currentStepIndex, stepName: currentStep.name },
       timestamp: progressTime
@@ -438,7 +437,7 @@ export function simulateExecutingRun(
     projectId,
     taskId: task.id,
     createdBy: '', // Will be filled by caller
-    status: 'EXECUTING',
+    status: RunStatus.EXECUTING,
     input: input ? JSON.parse(JSON.stringify(input)) : null,
     output: null,
     error: null,
