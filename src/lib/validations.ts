@@ -31,17 +31,21 @@ export const inviteMemberSchema = z.object({
 // Task schemas
 export const registerTaskSchema = z.object({
   name: z.string().min(1).max(100).regex(/^[a-z0-9-]+$/, "Task name must be lowercase with hyphens only"),
-  displayName: z.string().min(1).max(100),
   description: z.string().optional(),
-  retryLimit: z.number().int().min(0).max(10).default(3),
-  retryDelay: z.number().int().min(1000).max(300000).default(5000), // 1s to 5min in ms
-  timeout: z.number().int().min(1000).max(3600000).default(300000), // 1s to 1hr in ms
-  concurrency: z.number().int().min(1).max(100).default(1),
-  inputSchema: z.record(z.any()).optional(),
+  handler: z.string().min(1).max(255),
+  retryLimit: z.number().int().min(0).max(10).default(0),
+  timeout: z.number().int().min(1000).max(3600000).optional(),
+  priority: z.number().int().default(0),
+  tags: z.array(z.string()).default([]),
   stepTemplates: z.array(z.object({
     name: z.string().min(1),
     avgDuration: z.number().int().min(100), // minimum 100ms
   })).min(1),
+  // Frontend-specific fields that get stored in config JSON
+  displayName: z.string().min(1).max(100).optional(),
+  retryDelay: z.number().int().min(1000).max(300000).optional(),
+  concurrency: z.number().int().min(1).max(100).optional(),
+  inputSchema: z.record(z.any()).optional(),
 });
 
 // Run schemas

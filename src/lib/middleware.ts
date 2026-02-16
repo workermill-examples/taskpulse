@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "./auth";
 import { prisma } from "./prisma";
-import { MemberRole } from "@/types";
+import type { MemberRole } from "@/generated/prisma/enums";
 
 export interface AuthenticatedUser {
   id: string;
