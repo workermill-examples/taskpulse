@@ -1,0 +1,44 @@
+name: Deploy
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  post-deploy:
+    name: Post-Deploy Tasks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Run database migrations
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL }}
+        run: npx prisma migrate deploy
+
+      - name: Wait for Vercel deploy
+        run: sleep 30
+
+      - name: Seed demo data
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+            https://taskpulse.workermill.com/api/seed \
+            -H "Authorization: Bearer ${{ secrets.SEED_TOKEN }}")
+
+          if [ "$response" = "200" ] || [ "$response" = "409" ]; then
+            echo "Seed successful (HTTP $response)"
+          else
+            echo "Seed failed with HTTP $response"
+            exit 1
+          fi
+
+      - name: Smoke test
+        run: |
+          curl -f https://taskpulse.workermill.com/api/health || exit 1
+          echo "Health check passed"
