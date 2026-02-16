@@ -44,6 +44,21 @@ const mockRequireProjectAccess = requireProjectAccess as MockedFunction<typeof r
 const mockGetUserProjectMembership = getUserProjectMembership as MockedFunction<typeof getUserProjectMembership>;
 const mockHasPermission = hasPermission as MockedFunction<typeof hasPermission>;
 
+// Helper to create NextRequest with proper body handling for tests
+function createTestRequest(url: string, options?: { method?: string; body?: any; headers?: Record<string, string> }) {
+  if (options?.body) {
+    return new NextRequest(
+      new Request(url, {
+        method: options.method || 'GET',
+        headers: options.headers ? { 'Content-Type': 'application/json', ...options.headers } : { 'Content-Type': 'application/json' },
+        body: typeof options.body === 'string' ? options.body : JSON.stringify(options.body),
+      })
+    );
+  } else {
+    return new NextRequest(url, { method: options?.method || 'GET', headers: options?.headers });
+  }
+}
+
 describe("Projects API Routes", () => {
   const mockUser = {
     id: "user-1",
@@ -151,9 +166,9 @@ describe("Projects API Routes", () => {
     it("should return 401 if not authenticated", async () => {
       mockAuth.mockResolvedValue(null);
 
-      const request = new NextRequest("http://localhost/api/projects", {
+      const request = createTestRequest("http://localhost/api/projects", {
         method: "POST",
-        body: JSON.stringify({ name: "New Project" }),
+        body: { name: "New Project" },
       });
       const response = await ProjectsPOST(request);
       const data = await response.json();
@@ -176,12 +191,12 @@ describe("Projects API Routes", () => {
       (prisma.project.findUnique as any).mockResolvedValue(null); // No existing project
       (prisma.project.create as any).mockResolvedValue(mockCreatedProject);
 
-      const request = new NextRequest("http://localhost/api/projects", {
+      const request = createTestRequest("http://localhost/api/projects", {
         method: "POST",
-        body: JSON.stringify({
+        body: {
           name: "Test Project",
           description: "A test project",
-        }),
+        },
       });
 
       const response = await ProjectsPOST(request);
@@ -231,9 +246,9 @@ describe("Projects API Routes", () => {
         .mockResolvedValueOnce(null);
       (prisma.project.create as any).mockResolvedValue(mockCreatedProject);
 
-      const request = new NextRequest("http://localhost/api/projects", {
+      const request = createTestRequest("http://localhost/api/projects", {
         method: "POST",
-        body: JSON.stringify({ name: "Test Project" }),
+        body: { name: "Test Project" },
       });
 
       const response = await ProjectsPOST(request);
@@ -247,9 +262,9 @@ describe("Projects API Routes", () => {
     it("should return 400 for invalid input", async () => {
       mockAuth.mockResolvedValue(mockSession);
 
-      const request = new NextRequest("http://localhost/api/projects", {
+      const request = createTestRequest("http://localhost/api/projects", {
         method: "POST",
-        body: JSON.stringify({ name: "AB" }), // Too short
+        body: { name: "AB" }, // Too short
       });
 
       const response = await ProjectsPOST(request);
@@ -332,12 +347,12 @@ describe("Projects API Routes", () => {
       (prisma.project.update as any).mockResolvedValue(updatedProject);
 
       const params = Promise.resolve({ slug: "test-project" });
-      const request = new NextRequest("http://localhost/api/projects/test-project", {
+      const request = createTestRequest("http://localhost/api/projects/test-project", {
         method: "PUT",
-        body: JSON.stringify({
+        body: {
           name: "Updated Project",
           description: "Updated description",
-        }),
+        },
       });
 
       const response = await ProjectPUT(request, { params });
@@ -365,9 +380,9 @@ describe("Projects API Routes", () => {
       mockRequireProjectAccess.mockResolvedValue(mockErrorResponse as any);
 
       const params = Promise.resolve({ slug: "test-project" });
-      const request = new NextRequest("http://localhost/api/projects/test-project", {
+      const request = createTestRequest("http://localhost/api/projects/test-project", {
         method: "PUT",
-        body: JSON.stringify({ name: "Updated Project" }),
+        body: { name: "Updated Project" },
       });
 
       const response = await ProjectPUT(request, { params });
@@ -476,12 +491,12 @@ describe("Projects API Routes", () => {
       (prisma.projectMember.create as any).mockResolvedValue(mockNewMember);
 
       const params = Promise.resolve({ slug: "test-project" });
-      const request = new NextRequest("http://localhost/api/projects/test-project/members", {
+      const request = createTestRequest("http://localhost/api/projects/test-project/members", {
         method: "POST",
-        body: JSON.stringify({
+        body: {
           email: "invited@example.com",
           role: "MEMBER",
-        }),
+        },
       });
 
       const response = await MembersPOST(request, { params });
@@ -515,12 +530,12 @@ describe("Projects API Routes", () => {
       (prisma.user.findUnique as any).mockResolvedValue(null);
 
       const params = Promise.resolve({ slug: "test-project" });
-      const request = new NextRequest("http://localhost/api/projects/test-project/members", {
+      const request = createTestRequest("http://localhost/api/projects/test-project/members", {
         method: "POST",
-        body: JSON.stringify({
+        body: {
           email: "nonexistent@example.com",
           role: "MEMBER",
-        }),
+        },
       });
 
       const response = await MembersPOST(request, { params });
@@ -549,12 +564,12 @@ describe("Projects API Routes", () => {
       (prisma.projectMember.findFirst as any).mockResolvedValue({ id: "existing-member" });
 
       const params = Promise.resolve({ slug: "test-project" });
-      const request = new NextRequest("http://localhost/api/projects/test-project/members", {
+      const request = createTestRequest("http://localhost/api/projects/test-project/members", {
         method: "POST",
-        body: JSON.stringify({
+        body: {
           email: "invited@example.com",
           role: "MEMBER",
-        }),
+        },
       });
 
       const response = await MembersPOST(request, { params });
@@ -597,9 +612,9 @@ describe("Projects API Routes", () => {
       mockHasPermission.mockReturnValue(true);
 
       const params = Promise.resolve({ slug: "test-project", id: "member-2" });
-      const request = new NextRequest("http://localhost/api/projects/test-project/members/member-2", {
+      const request = createTestRequest("http://localhost/api/projects/test-project/members/member-2", {
         method: "PUT",
-        body: JSON.stringify({ role: "ADMIN" }),
+        body: { role: "ADMIN" },
       });
 
       const response = await MemberPUT(request, { params });
@@ -630,9 +645,9 @@ describe("Projects API Routes", () => {
       mockHasPermission.mockReturnValue(true);
 
       const params = Promise.resolve({ slug: "test-project", id: "member-1" });
-      const request = new NextRequest("http://localhost/api/projects/test-project/members/member-1", {
+      const request = createTestRequest("http://localhost/api/projects/test-project/members/member-1", {
         method: "PUT",
-        body: JSON.stringify({ role: "ADMIN" }),
+        body: { role: "ADMIN" },
       });
 
       const response = await MemberPUT(request, { params });
@@ -665,7 +680,7 @@ describe("Projects API Routes", () => {
       (prisma.projectMember.delete as any).mockResolvedValue(mockTargetMember);
 
       const params = Promise.resolve({ slug: "test-project", id: "member-1" });
-      const request = new NextRequest("http://localhost/api/projects/test-project/members/member-1", {
+      const request = createTestRequest("http://localhost/api/projects/test-project/members/member-1", {
         method: "DELETE",
       });
 
@@ -697,7 +712,7 @@ describe("Projects API Routes", () => {
       (prisma.projectMember.count as any).mockResolvedValue(1); // Only one OWNER
 
       const params = Promise.resolve({ slug: "test-project", id: "member-1" });
-      const request = new NextRequest("http://localhost/api/projects/test-project/members/member-1", {
+      const request = createTestRequest("http://localhost/api/projects/test-project/members/member-1", {
         method: "DELETE",
       });
 
@@ -728,7 +743,7 @@ describe("Projects API Routes", () => {
       mockHasPermission.mockReturnValue(false); // MEMBER cannot remove others
 
       const params = Promise.resolve({ slug: "test-project", id: "member-2" });
-      const request = new NextRequest("http://localhost/api/projects/test-project/members/member-2", {
+      const request = createTestRequest("http://localhost/api/projects/test-project/members/member-2", {
         method: "DELETE",
       });
 
