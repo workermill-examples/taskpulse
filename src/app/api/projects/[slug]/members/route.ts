@@ -44,7 +44,7 @@ export async function GET(
       ],
     });
 
-    const membersResponse: MemberWithUser[] = members.map((member) => ({
+    const membersResponse: MemberWithUser[] = members.map((member: typeof members[0]) => ({
       id: member.id,
       role: member.role,
       createdAt: member.createdAt.toISOString(),
