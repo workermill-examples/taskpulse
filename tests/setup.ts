@@ -8,24 +8,42 @@ vi.mock("next/server", () => ({
     headers: Map<string, string>;
     body?: ReadableStream;
 
-    constructor(url: string, options?: any) {
-      this.url = url;
-      this.method = options?.method || "GET";
-      this.headers = new Map();
+    constructor(input: string | Request, options?: any) {
+      // Handle both string URL and Request object
+      if (typeof input === 'string') {
+        this.url = input;
+        this.method = options?.method || "GET";
+        this.headers = new Map();
 
-      if (options?.headers) {
-        Object.entries(options.headers).forEach(([key, value]) => {
-          this.headers.set(key, value as string);
-        });
-      }
+        if (options?.headers) {
+          Object.entries(options.headers).forEach(([key, value]) => {
+            this.headers.set(key, value as string);
+          });
+        }
 
-      if (options?.body) {
-        this.body = new ReadableStream({
-          start(controller) {
-            controller.enqueue(new TextEncoder().encode(options.body));
-            controller.close();
-          },
+        if (options?.body) {
+          this.body = new ReadableStream({
+            start(controller) {
+              controller.enqueue(new TextEncoder().encode(options.body));
+              controller.close();
+            },
+          });
+        }
+      } else {
+        // input is a Request object
+        this.url = input.url;
+        this.method = input.method;
+        this.headers = new Map();
+
+        // Copy headers from Request
+        input.headers.forEach((value, key) => {
+          this.headers.set(key, value);
         });
+
+        // Copy body from Request
+        if (input.body) {
+          this.body = input.body;
+        }
       }
     }
 
