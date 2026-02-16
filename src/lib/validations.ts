@@ -67,3 +67,9 @@ export const externalTriggerSchema = z.object({
   task: z.string().min(1).max(100).regex(/^[a-z0-9-]+$/, "Task name must be lowercase with hyphens only"),
   input: z.record(z.any()).optional(),
 });
+
+// API Key schemas
+export const createApiKeySchema = z.object({
+  name: z.string().min(1).max(100),
+  expiresAt: z.string().datetime().optional(),
+});
