@@ -27,8 +27,8 @@ export async function GET(
 
     // Check project access
     const accessResult = await requireProjectAccess(request, slug, "VIEWER");
-    if (accessResult instanceof NextResponse) {
-      return accessResult;
+    if (!accessResult || !('project' in accessResult)) {
+      return accessResult as NextResponse;
     }
 
     const { project } = accessResult;
@@ -106,8 +106,8 @@ export async function POST(
   try {
     // Check project access - need MEMBER+ to create schedules
     const accessResult = await requireProjectAccess(request, slug, "MEMBER");
-    if (accessResult instanceof NextResponse) {
-      return accessResult;
+    if (!accessResult || !('project' in accessResult)) {
+      return accessResult as NextResponse;
     }
 
     const { project } = accessResult;
