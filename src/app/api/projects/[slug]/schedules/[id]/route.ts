@@ -13,8 +13,8 @@ export async function GET(
   try {
     // Check project access
     const accessResult = await requireProjectAccess(request, slug, "VIEWER");
-    if (accessResult instanceof NextResponse) {
-      return accessResult;
+    if (!accessResult || !('project' in accessResult)) {
+      return accessResult as NextResponse;
     }
 
     const { project } = accessResult;
@@ -80,8 +80,8 @@ export async function PUT(
   try {
     // Check project access - need MEMBER+ to update schedules
     const accessResult = await requireProjectAccess(request, slug, "MEMBER");
-    if (accessResult instanceof NextResponse) {
-      return accessResult;
+    if (!accessResult || !('project' in accessResult)) {
+      return accessResult as NextResponse;
     }
 
     const { project } = accessResult;
@@ -244,8 +244,8 @@ export async function DELETE(
   try {
     // Check project access - need ADMIN+ to delete schedules
     const accessResult = await requireProjectAccess(request, slug, "ADMIN");
-    if (accessResult instanceof NextResponse) {
-      return accessResult;
+    if (!accessResult || !('project' in accessResult)) {
+      return accessResult as NextResponse;
     }
 
     const { project } = accessResult;

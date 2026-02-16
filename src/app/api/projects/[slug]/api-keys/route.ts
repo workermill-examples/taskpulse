@@ -14,8 +14,8 @@ export async function GET(
   try {
     // Check project access - need ADMIN+ to view API keys
     const accessResult = await requireProjectAccess(request, slug, "ADMIN");
-    if (accessResult instanceof NextResponse) {
-      return accessResult;
+    if (!accessResult || !('project' in accessResult)) {
+      return accessResult as NextResponse;
     }
 
     const { project } = accessResult;
@@ -55,8 +55,8 @@ export async function POST(
   try {
     // Check project access - need ADMIN+ to create API keys
     const accessResult = await requireProjectAccess(request, slug, "ADMIN");
-    if (accessResult instanceof NextResponse) {
-      return accessResult;
+    if (!accessResult || !('project' in accessResult)) {
+      return accessResult as NextResponse;
     }
 
     const { user, project } = accessResult;

@@ -11,8 +11,8 @@ export async function DELETE(
   try {
     // Check project access - need ADMIN+ to delete API keys
     const accessResult = await requireProjectAccess(request, slug, "ADMIN");
-    if (accessResult instanceof NextResponse) {
-      return accessResult;
+    if (!accessResult || !('project' in accessResult)) {
+      return accessResult as NextResponse;
     }
 
     const { project } = accessResult;
