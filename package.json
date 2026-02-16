@@ -49,6 +49,7 @@
     "@vitest/coverage-v8": "^4.0.0",
     "eslint": "^9.0.0",
     "eslint-config-next": "^16.1.0",
+    "jsdom": "^28.1.0",
     "postcss": "^8.4.0",
     "prettier": "^3.3.0",
     "prisma": "^7.2.0",
