@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import bcrypt from "bcrypt";
+import * as bcrypt from "bcrypt";
 import { prisma } from "@/lib/prisma";
 import { simulateRun } from "@/lib/run-simulator";
 import { externalTriggerSchema } from "@/lib/validations";
@@ -107,21 +107,37 @@ export async function POST(request: NextRequest) {
       "api"
     );
 
-    // 8. Create the run in the database with nested steps and logs
+    // 8. Create the run in the database with nested traces and logs
     const run = await prisma.run.create({
       data: {
-        ...simulatedRun.run,
+        projectId: simulatedRun.run.projectId,
+        taskId: simulatedRun.run.taskId,
+        status: simulatedRun.run.status,
+        input: simulatedRun.run.input as any,
+        output: simulatedRun.run.output as any,
+        error: simulatedRun.run.error,
+        duration: simulatedRun.run.duration,
+        startedAt: simulatedRun.run.startedAt,
+        completedAt: simulatedRun.run.completedAt,
         createdBy: apiKey.createdBy, // Use the API key creator as the run creator
         traces: {
-          create: simulatedRun.steps.map(step => ({
-            ...step,
-            runId: undefined, // Let Prisma handle the relation
+          create: simulatedRun.steps.map(trace => ({
+            name: trace.name,
+            type: trace.type,
+            startTime: trace.startTime,
+            endTime: trace.endTime,
+            duration: trace.duration,
+            status: trace.status,
+            metadata: trace.metadata === null ? undefined : trace.metadata,
+            parentId: trace.parentId,
           })),
         },
         logs: {
           create: simulatedRun.logs.map(log => ({
-            ...log,
-            runId: undefined, // Let Prisma handle the relation
+            level: log.level,
+            message: log.message,
+            metadata: log.metadata === null ? undefined : log.metadata,
+            timestamp: log.timestamp,
           })),
         },
       },
@@ -159,7 +175,7 @@ export async function POST(request: NextRequest) {
       output: run.output,
       error: run.error,
       duration: run.duration,
-      stepCount: run.traces.length,
+      traceCount: run.traces.length,
       logCount: run.logs.length,
       startedAt: run.startedAt?.toISOString(),
       completedAt: run.completedAt?.toISOString(),
