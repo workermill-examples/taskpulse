@@ -70,7 +70,7 @@ test.describe("Runs List Page", () => {
 
     // Check for at least one run row (from seed data)
     const rows = page.locator("tbody tr");
-    await expect(rows).toHaveCountGreaterThan(0);
+    expect(await rows.count()).toBeGreaterThan(0);
 
     // Check that first row has expected cells
     const firstRow = rows.first();
@@ -118,7 +118,7 @@ test.describe("Runs List Page", () => {
 
     // Wait for table to load and task dropdown to be populated
     await expect(page.locator("table")).toBeVisible();
-    await expect(page.locator("select option")).toHaveCountGreaterThan(1);
+    expect(await page.locator("select option").count()).toBeGreaterThan(1);
 
     // Select a task from dropdown (not "All Tasks")
     const taskSelect = page.locator("select");
@@ -262,7 +262,7 @@ test.describe("Trigger Run Dialog", () => {
     await page.click('[role="button"]:has-text("Select a task")');
 
     // Should show task options
-    await expect(page.locator('[role="option"]')).toHaveCountGreaterThan(0);
+    expect(await page.locator('[role="option"]').count()).toBeGreaterThan(0);
   });
 
   test("should validate JSON input", async ({ page }) => {
@@ -302,7 +302,7 @@ test.describe("Trigger Run Dialog", () => {
     // If no task is pre-selected, open dropdown and select first option
     if (await page.locator('[role="button"]:has-text("Select a task")').count() > 0) {
       await page.click('[role="button"]:has-text("Select a task")');
-      await page.click('[role="option"]').first();
+      await page.locator('[role="option"]').first().click();
     }
 
     // Enter valid JSON
