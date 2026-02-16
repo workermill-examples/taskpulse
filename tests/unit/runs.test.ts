@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, MockedFunction } from "vitest";
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 import { GET as TasksGET, POST as TasksPOST } from "@/app/api/projects/[slug]/tasks/route";
 import { GET as TaskGET, PUT as TaskPUT, DELETE as TaskDELETE } from "@/app/api/projects/[slug]/tasks/[id]/route";
@@ -193,7 +193,7 @@ describe("Tasks & Runs API Routes", () => {
     });
 
     it("should handle middleware auth errors", async () => {
-      const mockErrorResponse = Response.json(
+      const mockErrorResponse = NextResponse.json(
         { error: "Authentication required" },
         { status: 401 }
       );
