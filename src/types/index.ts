@@ -33,12 +33,9 @@ export interface RunListItem {
   completedAt: string | null;
   duration: number | null;
   error: string | null;
-  triggeredBy: string;
-  attempt: number;
   createdAt: string;
   task: {
     id: string;
-    displayName: string;
     name: string;
   };
 }
@@ -46,17 +43,14 @@ export interface RunListItem {
 export interface TaskWithRunCounts {
   id: string;
   name: string;
-  displayName: string;
   description?: string | null;
+  handler: string;
+  config: Record<string, any>;
+  timeout?: number | null;
   retryLimit: number;
-  retryDelay: number;
-  timeout: number;
-  concurrency: number;
-  inputSchema: Record<string, any> | null;
-  stepTemplates: Array<{
-    name: string;
-    avgDuration: number;
-  }>;
+  priority: number;
+  tags: string[];
+  isActive: boolean;
   createdAt: string;
   updatedAt: string;
   runCounts: {
@@ -89,9 +83,11 @@ export interface MemberWithUser {
 export interface ScheduleWithTask {
   id: string;
   name: string;
-  cronExpression: string;
-  enabled: boolean;
+  description?: string | null;
+  cronExpr: string;
   timezone: string;
+  input?: Record<string, any> | null;
+  status: "ACTIVE" | "PAUSED" | "DISABLED";
   nextRunAt: string | null;
   lastRunAt: string | null;
   createdAt: string;
@@ -99,7 +95,6 @@ export interface ScheduleWithTask {
   task: {
     id: string;
     name: string;
-    displayName: string;
   };
 }
 
@@ -107,7 +102,6 @@ export interface DashboardStats {
   runsByStatus: Record<RunStatus, number>;
   runsByTask: Array<{
     taskName: string;
-    taskDisplayName: string;
     count: number;
   }>;
   runsOverTime: Array<{
