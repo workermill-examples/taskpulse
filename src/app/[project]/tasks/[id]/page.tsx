@@ -69,7 +69,14 @@ async function getTaskDetail(projectSlug: string, taskId: string) {
       duration: true,
       error: true,
       createdAt: true,
-      triggeredBy: true,
+      createdBy: true,
+      creator: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      },
       task: {
         select: {
           id: true,
@@ -100,11 +107,11 @@ async function getTaskDetail(projectSlug: string, taskId: string) {
 
   // Calculate run counts
   const runCountsByStatus = {
-    total: runCounts.reduce((sum, count) => sum + count._count.id, 0),
-    completed: runCounts.find(c => c.status === 'COMPLETED')?._count.id || 0,
-    failed: runCounts.find(c => c.status === 'FAILED')?._count.id || 0,
-    executing: runCounts.find(c => c.status === 'EXECUTING')?._count.id || 0,
-    queued: runCounts.find(c => c.status === 'QUEUED')?._count.id || 0,
+    total: runCounts.reduce((sum: number, count: any) => sum + count._count.id, 0),
+    completed: runCounts.find((c: any) => c.status === 'COMPLETED')?._count.id || 0,
+    failed: runCounts.find((c: any) => c.status === 'FAILED')?._count.id || 0,
+    executing: runCounts.find((c: any) => c.status === 'EXECUTING')?._count.id || 0,
+    queued: runCounts.find((c: any) => c.status === 'QUEUED')?._count.id || 0,
   };
 
   // Transform task and runs for display
@@ -130,14 +137,14 @@ async function getTaskDetail(projectSlug: string, taskId: string) {
     } : null,
   };
 
-  const transformedRuns = recentRuns.map(run => ({
+  const transformedRuns = recentRuns.map((run: any) => ({
     id: run.id,
     status: run.status as "QUEUED" | "EXECUTING" | "COMPLETED" | "FAILED" | "CANCELLED" | "TIMED_OUT",
     startedAt: run.startedAt?.toISOString() || null,
     completedAt: run.completedAt?.toISOString() || null,
     duration: run.duration,
     error: run.error,
-    triggeredBy: run.triggeredBy,
+    triggeredBy: run.creator.name, // Use creator name as triggered by
     createdAt: run.createdAt.toISOString(),
     task: {
       id: run.task.id,
