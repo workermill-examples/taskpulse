@@ -196,18 +196,18 @@ export async function POST(
     // Create the task with correct field mapping
     const task = await prisma.task.create({
       data: {
-        name: displayName, // Store display name in name field
+        name: displayName || machineNameFromClient, // Store display name in name field, fallback to machine name
         handler: machineNameFromClient, // Store machine name in handler field
         description,
         projectId: project.id,
         createdBy: user.id,
-        retryLimit,
-        timeout,
+        retryLimit: retryLimit ?? 0,
+        timeout: timeout,
         config: {
-          retryDelay,
-          concurrency,
-          inputSchema,
-          stepTemplates,
+          retryDelay: retryDelay,
+          concurrency: concurrency,
+          inputSchema: inputSchema,
+          stepTemplates: stepTemplates,
         },
       },
     });

@@ -96,50 +96,27 @@ export async function GET(
     const hasMore = runs.length > limit;
     const actualRuns = hasMore ? runs.slice(0, -1) : runs;
 
-    // Calculate attempt numbers for each run
-    const runsWithAttempts = await Promise.all(
-      actualRuns.map(async (run) => {
-        // Calculate attempt number by counting previous runs with same task and input
-        const inputString = run.input ? JSON.stringify(run.input) : null;
-
-        const allRunsForTask = await prisma.run.findMany({
-          where: {
-            taskId: run.taskId,
-          },
-          select: {
-            input: true,
-            createdAt: true,
-          },
-        });
-
-        const matchingRuns = allRunsForTask.filter(r => {
-          const runInputString = r.input ? JSON.stringify(r.input) : null;
-          return runInputString === inputString && r.createdAt <= run.createdAt;
-        });
-
-        const attemptCount = matchingRuns.length;
-
-        return {
-          id: run.id,
-          status: run.status,
-          startedAt: run.startedAt?.toISOString() || null,
-          completedAt: run.completedAt?.toISOString() || null,
-          duration: run.duration,
-          error: run.error,
-          triggeredBy: "manual", // Default for now - could be enhanced with proper tracking
-          attempt: attemptCount,
-          createdAt: run.createdAt.toISOString(),
-          task: {
-            id: run.task.id,
-            displayName: run.task.name, // Display name from name field
-            name: run.task.handler, // Machine name from handler field
-          },
-        };
-      })
-    );
+    // Transform runs for response
+    const transformedRuns = actualRuns.map((run) => {
+      return {
+        id: run.id,
+        status: run.status,
+        startedAt: run.startedAt?.toISOString() || null,
+        completedAt: run.completedAt?.toISOString() || null,
+        duration: run.duration,
+        error: run.error,
+        triggeredBy: "manual", // Default for now - could be enhanced with proper tracking
+        createdAt: run.createdAt.toISOString(),
+        task: {
+          id: run.task.id,
+          displayName: run.task.name, // Display name from name field
+          name: run.task.handler, // Machine name from handler field
+        },
+      };
+    });
 
     const response = {
-      data: runsWithAttempts,
+      data: transformedRuns,
       hasMore,
       cursor: hasMore ? actualRuns[actualRuns.length - 1].id : undefined,
     };
@@ -192,61 +169,58 @@ export async function POST(
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }
 
-    // Use transaction to create run with all related data atomically
-    const result = await prisma.$transaction(async (tx) => {
-      // Calculate attempt number
-      const attemptCount = await tx.run.count({
-        where: {
-          taskId: task.id,
-          input: input ? JSON.parse(JSON.stringify(input)) : null,
-        },
-      });
+    // Simulate the run
+    const simulation = simulateRun(project.id, task, input, "manual");
 
-      // Simulate the run
-      const simulation = simulateRun(project.id, task, input, "manual");
-
-      // Create the run with steps and logs
-      const run = await tx.run.create({
-        data: {
-          ...simulation.run,
-          createdBy: user.id,
-          input: simulation.run.input as any,
-          traces: {
-            create: simulation.steps.map(step => ({
-              ...step,
-              runId: undefined, // Will be set by Prisma
-              metadata: step.metadata as any || {},
-            })),
-          },
-          logs: {
-            create: simulation.logs.map(log => ({
-              ...log,
-              runId: undefined, // Will be set by Prisma
-              metadata: log.metadata as any || {},
-            })),
-          },
+    // Create the run with steps and logs
+    const result = await prisma.run.create({
+      data: {
+        projectId: simulation.run.projectId,
+        taskId: simulation.run.taskId,
+        status: simulation.run.status,
+        input: simulation.run.input as any,
+        output: simulation.run.output as any,
+        error: simulation.run.error,
+        duration: simulation.run.duration,
+        startedAt: simulation.run.startedAt,
+        completedAt: simulation.run.completedAt,
+        createdBy: user.id,
+        traces: {
+          create: simulation.steps.map(step => ({
+            name: step.name,
+            type: step.type,
+            startTime: step.startTime,
+            endTime: step.endTime,
+            duration: step.duration,
+            status: step.status,
+            parentId: step.parentId,
+            metadata: step.metadata || {},
+          })),
         },
-        include: {
-          task: {
-            select: {
-              id: true,
-              name: true, // Display name
-              handler: true, // Machine name
-            },
-          },
-          traces: {
-            orderBy: { startTime: "asc" },
-          },
-          logs: {
-            orderBy: { timestamp: "asc" },
+        logs: {
+          create: simulation.logs.map(log => ({
+            level: log.level,
+            message: log.message,
+            metadata: log.metadata || {},
+            timestamp: log.timestamp,
+          })),
+        },
+      },
+      include: {
+        task: {
+          select: {
+            id: true,
+            name: true, // Display name
+            handler: true, // Machine name
           },
         },
-      });
-
-      return {
-        ...run,
-        attempt: attemptCount + 1,
-      };
+        traces: {
+          orderBy: { startTime: "asc" },
+        },
+        logs: {
+          orderBy: { timestamp: "asc" },
+        },
+      },
     });
 
     // Return the run with correct field mapping
@@ -261,7 +235,6 @@ export async function POST(
       completedAt: result.completedAt?.toISOString() || null,
       createdAt: result.createdAt.toISOString(),
       updatedAt: result.updatedAt.toISOString(),
-      attempt: result.attempt,
       task: {
         id: result.task.id,
         displayName: result.task.name, // Display name from name field
