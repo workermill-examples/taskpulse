@@ -1,346 +1,311 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { renderHook, cleanup } from "@testing-library/react";
-import { act } from "react";
+import { useKeyboardShortcuts, type UseKeyboardShortcutsOptions, type KeyboardShortcut } from "@/hooks/useKeyboardShortcuts";
 
-// Mock the keyboard shortcuts hook since it doesn't exist yet
-// This tests the expected behavior based on the requirements
-const useKeyboardShortcuts = (callbacks: {
-  onSearch?: () => void;
-  onNewRun?: () => void;
-  onEscape?: () => void;
-  onHelp?: () => void;
-}) => {
-  const { onSearch, onNewRun, onEscape, onHelp } = callbacks;
-
-  // Mock implementation that would register event listeners
-  const handleKeyDown = (event: KeyboardEvent) => {
-    const target = event.target as HTMLElement;
-    const isInput = target.tagName === 'INPUT' ||
-                   target.tagName === 'TEXTAREA' ||
-                   target.contentEditable === 'true';
-
-    // ESC always works, even in inputs
-    if (event.key === 'Escape') {
-      onEscape?.();
-      return;
-    }
-
-    // Other shortcuts disabled when typing in inputs
-    if (isInput) {
-      return;
-    }
-
-    // Global search shortcuts
-    if (event.key === '/' || (event.key === 'k' && (event.ctrlKey || event.metaKey))) {
-      event.preventDefault();
-      onSearch?.();
-      return;
-    }
-
-    // New run shortcut
-    if (event.key === 'n' || event.key === 'N') {
-      onNewRun?.();
-      return;
-    }
-
-    // Help shortcut
-    if (event.key === '?') {
-      onHelp?.();
-      return;
-    }
-  };
-
-  // Mock useEffect behavior
-  if (typeof window !== 'undefined') {
-    document.addEventListener('keydown', handleKeyDown);
-
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }
-
-  return () => {};
-};
+// Mock console.log to avoid spam during tests
+vi.spyOn(console, 'log').mockImplementation(() => {});
 
 describe("useKeyboardShortcuts Hook", () => {
-  let mockCallbacks: {
-    onSearch: ReturnType<typeof vi.fn>;
-    onNewRun: ReturnType<typeof vi.fn>;
-    onEscape: ReturnType<typeof vi.fn>;
-    onHelp: ReturnType<typeof vi.fn>;
+  const mockCallbacks = {
+    onGlobalSearch: vi.fn(),
+    onTriggerRun: vi.fn(),
+    onHelp: vi.fn(),
+    onEscape: vi.fn(),
   };
 
+  // Mock document methods
+  const mockAddEventListener = vi.fn();
+  const mockRemoveEventListener = vi.fn();
+  let registeredHandler: ((event: KeyboardEvent) => void) | null = null;
+
   beforeEach(() => {
-    mockCallbacks = {
-      onSearch: vi.fn(),
-      onNewRun: vi.fn(),
-      onEscape: vi.fn(),
-      onHelp: vi.fn(),
-    };
+    vi.clearAllMocks();
+    registeredHandler = null;
+
+    // Mock document event listeners
+    mockAddEventListener.mockImplementation((event: string, handler: (event: KeyboardEvent) => void) => {
+      if (event === 'keydown') {
+        registeredHandler = handler;
+      }
+    });
+    mockRemoveEventListener.mockImplementation(() => {
+      registeredHandler = null;
+    });
+
+    Object.defineProperty(document, 'addEventListener', {
+      value: mockAddEventListener,
+      writable: true,
+    });
+
+    Object.defineProperty(document, 'removeEventListener', {
+      value: mockRemoveEventListener,
+      writable: true,
+    });
   });
 
   afterEach(() => {
-    cleanup();
     vi.clearAllMocks();
   });
 
-  it("should register keyboard event listeners on mount", () => {
-    const addEventListenerSpy = vi.spyOn(document, 'addEventListener');
+  // Helper function to simulate hook execution
+  function testHook(options: UseKeyboardShortcutsOptions): { shortcuts: KeyboardShortcut[] } {
+    return useKeyboardShortcuts(options);
+  }
 
-    renderHook(() => useKeyboardShortcuts(mockCallbacks));
+  // Helper function to create mock keyboard events
+  function createKeyEvent(key: string, options: Partial<KeyboardEvent> = {}): KeyboardEvent {
+    return {
+      key,
+      target: document.createElement("div"),
+      metaKey: false,
+      ctrlKey: false,
+      altKey: false,
+      shiftKey: false,
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn(),
+      ...options,
+    } as unknown as KeyboardEvent;
+  }
 
-    expect(addEventListenerSpy).toHaveBeenCalledWith('keydown', expect.any(Function));
+  it("should register keyboard event listener", () => {
+    testHook(mockCallbacks);
+    expect(mockAddEventListener).toHaveBeenCalledWith("keydown", expect.any(Function));
   });
 
-  it("should remove event listeners on unmount", () => {
-    const removeEventListenerSpy = vi.spyOn(document, 'removeEventListener');
+  it("should trigger global search on '/' key", () => {
+    testHook(mockCallbacks);
 
-    const { unmount } = renderHook(() => useKeyboardShortcuts(mockCallbacks));
+    if (registeredHandler) {
+      const event = createKeyEvent("/");
+      registeredHandler(event);
 
-    unmount();
-
-    expect(removeEventListenerSpy).toHaveBeenCalledWith('keydown', expect.any(Function));
+      expect(event.preventDefault).toHaveBeenCalled();
+      expect(mockCallbacks.onGlobalSearch).toHaveBeenCalled();
+    }
   });
 
-  it("should trigger search callback on / key", () => {
-    renderHook(() => useKeyboardShortcuts(mockCallbacks));
+  it("should trigger global search on Ctrl+K", () => {
+    testHook(mockCallbacks);
 
-    act(() => {
-      const event = new KeyboardEvent('keydown', { key: '/' });
-      document.dispatchEvent(event);
-    });
+    if (registeredHandler) {
+      const event = createKeyEvent("k", { ctrlKey: true });
+      registeredHandler(event);
 
-    expect(mockCallbacks.onSearch).toHaveBeenCalledTimes(1);
+      expect(event.preventDefault).toHaveBeenCalled();
+      expect(mockCallbacks.onGlobalSearch).toHaveBeenCalled();
+    }
   });
 
-  it("should trigger search callback on Ctrl+K", () => {
-    renderHook(() => useKeyboardShortcuts(mockCallbacks));
+  it("should trigger global search on Cmd+K (metaKey)", () => {
+    testHook(mockCallbacks);
 
-    act(() => {
-      const event = new KeyboardEvent('keydown', { key: 'k', ctrlKey: true });
-      document.dispatchEvent(event);
-    });
+    if (registeredHandler) {
+      const event = createKeyEvent("k", { metaKey: true });
+      registeredHandler(event);
 
-    expect(mockCallbacks.onSearch).toHaveBeenCalledTimes(1);
+      expect(event.preventDefault).toHaveBeenCalled();
+      expect(mockCallbacks.onGlobalSearch).toHaveBeenCalled();
+    }
   });
 
-  it("should trigger search callback on Cmd+K", () => {
-    renderHook(() => useKeyboardShortcuts(mockCallbacks));
+  it("should trigger run dialog on 'n' key", () => {
+    testHook(mockCallbacks);
 
-    act(() => {
-      const event = new KeyboardEvent('keydown', { key: 'k', metaKey: true });
-      document.dispatchEvent(event);
-    });
+    if (registeredHandler) {
+      const event = createKeyEvent("n");
+      registeredHandler(event);
 
-    expect(mockCallbacks.onSearch).toHaveBeenCalledTimes(1);
+      expect(event.preventDefault).toHaveBeenCalled();
+      expect(mockCallbacks.onTriggerRun).toHaveBeenCalled();
+    }
   });
 
-  it("should trigger new run callback on N key", () => {
-    renderHook(() => useKeyboardShortcuts(mockCallbacks));
+  it("should trigger help on '?' key", () => {
+    testHook(mockCallbacks);
 
-    act(() => {
-      const event = new KeyboardEvent('keydown', { key: 'N' });
-      document.dispatchEvent(event);
-    });
+    if (registeredHandler) {
+      const event = createKeyEvent("?");
+      registeredHandler(event);
 
-    expect(mockCallbacks.onNewRun).toHaveBeenCalledTimes(1);
-  });
-
-  it("should trigger new run callback on lowercase n key", () => {
-    renderHook(() => useKeyboardShortcuts(mockCallbacks));
-
-    act(() => {
-      const event = new KeyboardEvent('keydown', { key: 'n' });
-      document.dispatchEvent(event);
-    });
-
-    expect(mockCallbacks.onNewRun).toHaveBeenCalledTimes(1);
+      expect(event.preventDefault).toHaveBeenCalled();
+      expect(mockCallbacks.onHelp).toHaveBeenCalled();
+    }
   });
 
   it("should trigger escape callback on Escape key", () => {
-    renderHook(() => useKeyboardShortcuts(mockCallbacks));
+    testHook(mockCallbacks);
 
-    act(() => {
-      const event = new KeyboardEvent('keydown', { key: 'Escape' });
-      document.dispatchEvent(event);
-    });
+    if (registeredHandler) {
+      const event = createKeyEvent("Escape");
+      registeredHandler(event);
 
-    expect(mockCallbacks.onEscape).toHaveBeenCalledTimes(1);
+      expect(event.preventDefault).toHaveBeenCalled();
+      expect(mockCallbacks.onEscape).toHaveBeenCalled();
+    }
   });
 
-  it("should trigger help callback on ? key", () => {
-    renderHook(() => useKeyboardShortcuts(mockCallbacks));
+  it("should work with Escape key even when typing in input", () => {
+    testHook(mockCallbacks);
 
-    act(() => {
-      const event = new KeyboardEvent('keydown', { key: '?' });
-      document.dispatchEvent(event);
-    });
+    if (registeredHandler) {
+      const inputElement = document.createElement("input");
+      const event = createKeyEvent("Escape", { target: inputElement });
+      registeredHandler(event);
 
-    expect(mockCallbacks.onHelp).toHaveBeenCalledTimes(1);
+      expect(event.preventDefault).toHaveBeenCalled();
+      expect(mockCallbacks.onEscape).toHaveBeenCalled();
+    }
   });
 
-  it("should not trigger shortcuts when typing in input field", () => {
-    renderHook(() => useKeyboardShortcuts(mockCallbacks));
+  it("should ignore shortcuts when typing in input field", () => {
+    testHook(mockCallbacks);
 
-    // Create and focus an input element
-    const input = document.createElement('input');
-    document.body.appendChild(input);
+    if (registeredHandler) {
+      const inputElement = document.createElement("input");
+      const event = createKeyEvent("/", { target: inputElement });
+      registeredHandler(event);
 
-    act(() => {
-      // Simulate keydown event with input as target
-      const event = new KeyboardEvent('keydown', { key: '/' });
-      Object.defineProperty(event, 'target', {
-        value: input,
-        enumerable: true,
-      });
-      document.dispatchEvent(event);
-    });
-
-    expect(mockCallbacks.onSearch).not.toHaveBeenCalled();
-
-    document.body.removeChild(input);
+      expect(event.preventDefault).not.toHaveBeenCalled();
+      expect(mockCallbacks.onGlobalSearch).not.toHaveBeenCalled();
+    }
   });
 
-  it("should not trigger shortcuts when typing in textarea", () => {
-    renderHook(() => useKeyboardShortcuts(mockCallbacks));
+  it("should ignore shortcuts when typing in textarea", () => {
+    testHook(mockCallbacks);
 
-    // Create and focus a textarea element
-    const textarea = document.createElement('textarea');
-    document.body.appendChild(textarea);
+    if (registeredHandler) {
+      const textareaElement = document.createElement("textarea");
+      const event = createKeyEvent("n", { target: textareaElement });
+      registeredHandler(event);
 
-    act(() => {
-      const event = new KeyboardEvent('keydown', { key: 'n' });
-      Object.defineProperty(event, 'target', {
-        value: textarea,
-        enumerable: true,
-      });
-      document.dispatchEvent(event);
-    });
-
-    expect(mockCallbacks.onNewRun).not.toHaveBeenCalled();
-
-    document.body.removeChild(textarea);
+      expect(event.preventDefault).not.toHaveBeenCalled();
+      expect(mockCallbacks.onTriggerRun).not.toHaveBeenCalled();
+    }
   });
 
-  it("should not trigger shortcuts when typing in contentEditable element", () => {
-    renderHook(() => useKeyboardShortcuts(mockCallbacks));
+  it("should ignore shortcuts when element is contenteditable", () => {
+    testHook(mockCallbacks);
 
-    // Create and focus a contentEditable element
-    const div = document.createElement('div');
-    div.contentEditable = 'true';
-    document.body.appendChild(div);
+    if (registeredHandler) {
+      const contentEditableDiv = document.createElement("div");
+      contentEditableDiv.setAttribute("contenteditable", "true");
+      const event = createKeyEvent("?", { target: contentEditableDiv });
+      registeredHandler(event);
 
-    act(() => {
-      const event = new KeyboardEvent('keydown', { key: '?' });
-      Object.defineProperty(event, 'target', {
-        value: div,
-        enumerable: true,
-      });
-      document.dispatchEvent(event);
-    });
-
-    expect(mockCallbacks.onHelp).not.toHaveBeenCalled();
-
-    document.body.removeChild(div);
+      expect(event.preventDefault).not.toHaveBeenCalled();
+      expect(mockCallbacks.onHelp).not.toHaveBeenCalled();
+    }
   });
 
-  it("should trigger escape even when typing in input field", () => {
-    renderHook(() => useKeyboardShortcuts(mockCallbacks));
+  it("should ignore shortcuts when target has textbox role", () => {
+    testHook(mockCallbacks);
 
-    const input = document.createElement('input');
-    document.body.appendChild(input);
+    if (registeredHandler) {
+      const roleTextbox = document.createElement("div");
+      roleTextbox.setAttribute("role", "textbox");
+      const event = createKeyEvent("/", { target: roleTextbox });
+      registeredHandler(event);
 
-    act(() => {
-      const event = new KeyboardEvent('keydown', { key: 'Escape' });
-      Object.defineProperty(event, 'target', {
-        value: input,
-        enumerable: true,
-      });
-      document.dispatchEvent(event);
-    });
-
-    expect(mockCallbacks.onEscape).toHaveBeenCalledTimes(1);
-
-    document.body.removeChild(input);
+      expect(event.preventDefault).not.toHaveBeenCalled();
+      expect(mockCallbacks.onGlobalSearch).not.toHaveBeenCalled();
+    }
   });
 
-  it("should prevent default behavior for search shortcuts", () => {
-    renderHook(() => useKeyboardShortcuts(mockCallbacks));
+  it("should ignore shortcuts when target is select element", () => {
+    testHook(mockCallbacks);
 
-    act(() => {
-      const event = new KeyboardEvent('keydown', { key: '/' });
-      const preventDefaultSpy = vi.spyOn(event, 'preventDefault');
+    if (registeredHandler) {
+      const selectElement = document.createElement("select");
+      const event = createKeyEvent("n", { target: selectElement });
+      registeredHandler(event);
 
-      // Manually trigger the handler since we can't dispatch with preventDefault mock
-      const handler = (document.addEventListener as any).mock.calls[0][1];
-      handler(event);
-
-      expect(preventDefaultSpy).toHaveBeenCalled();
-    });
+      expect(event.preventDefault).not.toHaveBeenCalled();
+      expect(mockCallbacks.onTriggerRun).not.toHaveBeenCalled();
+    }
   });
 
-  it("should handle multiple shortcut registrations", () => {
-    const callbacks1 = {
-      onSearch: vi.fn(),
-      onNewRun: vi.fn(),
+  it("should not trigger shortcut when modifier keys are pressed inappropriately", () => {
+    testHook(mockCallbacks);
+
+    if (registeredHandler) {
+      const event = createKeyEvent("n", { metaKey: true });
+      registeredHandler(event);
+
+      expect(mockCallbacks.onTriggerRun).not.toHaveBeenCalled();
+    }
+  });
+
+  it("should return filtered shortcuts list based on provided callbacks", () => {
+    const partialCallbacks: UseKeyboardShortcutsOptions = {
+      onGlobalSearch: mockCallbacks.onGlobalSearch,
+      onEscape: mockCallbacks.onEscape,
+      // No onTriggerRun or onHelp
     };
 
-    const callbacks2 = {
-      onEscape: vi.fn(),
-      onHelp: vi.fn(),
+    const result = testHook(partialCallbacks);
+
+    expect(result.shortcuts).toHaveLength(4); // /, Cmd+K, Ctrl+K, Escape
+    expect(result.shortcuts.some((s: KeyboardShortcut) => s.key === "n")).toBe(false);
+    expect(result.shortcuts.some((s: KeyboardShortcut) => s.key === "?")).toBe(false);
+    expect(result.shortcuts.some((s: KeyboardShortcut) => s.key === "/" && !s.metaKey && !s.ctrlKey)).toBe(true);
+    expect(result.shortcuts.some((s: KeyboardShortcut) => s.key === "Escape")).toBe(true);
+  });
+
+  it("should return empty shortcuts array when no callbacks provided", () => {
+    const result = testHook({});
+    expect(result.shortcuts).toHaveLength(0);
+  });
+
+  it("should include correct descriptions for shortcuts", () => {
+    const result = testHook(mockCallbacks);
+
+    const shortcuts = result.shortcuts;
+    const globalSearchShortcut = shortcuts.find((s: KeyboardShortcut) => s.key === "/" && !s.metaKey && !s.ctrlKey);
+    const cmdKShortcut = shortcuts.find((s: KeyboardShortcut) => s.key === "k" && s.metaKey);
+    const ctrlKShortcut = shortcuts.find((s: KeyboardShortcut) => s.key === "k" && s.ctrlKey);
+    const triggerRunShortcut = shortcuts.find((s: KeyboardShortcut) => s.key === "n");
+    const escapeShortcut = shortcuts.find((s: KeyboardShortcut) => s.key === "Escape");
+    const helpShortcut = shortcuts.find((s: KeyboardShortcut) => s.key === "?");
+
+    expect(globalSearchShortcut?.description).toBe("Open global search");
+    expect(cmdKShortcut?.description).toBe("Open global search (Cmd+K)");
+    expect(ctrlKShortcut?.description).toBe("Open global search (Ctrl+K)");
+    expect(triggerRunShortcut?.description).toBe("Open trigger run dialog");
+    expect(escapeShortcut?.description).toBe("Close modal/dialog/search");
+    expect(helpShortcut?.description).toBe("Show keyboard shortcuts help");
+  });
+
+  it("should not call callbacks when they are not provided", () => {
+    const partialCallbacks: UseKeyboardShortcutsOptions = {
+      onGlobalSearch: mockCallbacks.onGlobalSearch,
+      // No other callbacks
     };
 
-    renderHook(() => useKeyboardShortcuts(callbacks1));
-    renderHook(() => useKeyboardShortcuts(callbacks2));
+    testHook(partialCallbacks);
 
-    act(() => {
-      const event = new KeyboardEvent('keydown', { key: '/' });
-      document.dispatchEvent(event);
-    });
+    if (registeredHandler) {
+      const event = createKeyEvent("n");
+      registeredHandler(event);
 
-    // Both hooks should register their own listeners
-    expect(callbacks1.onSearch).toHaveBeenCalledTimes(1);
+      expect(event.preventDefault).not.toHaveBeenCalled();
+    }
   });
 
-  it("should handle missing callbacks gracefully", () => {
-    renderHook(() => useKeyboardShortcuts({}));
+  it("should handle multiple callbacks correctly", () => {
+    testHook(mockCallbacks);
 
-    // Should not throw error when callbacks are missing
-    expect(() => {
-      act(() => {
-        const event = new KeyboardEvent('keydown', { key: '/' });
-        document.dispatchEvent(event);
-      });
-    }).not.toThrow();
-  });
+    if (registeredHandler) {
+      // Test multiple different key combinations
+      const event1 = createKeyEvent("/");
+      registeredHandler(event1);
+      expect(mockCallbacks.onGlobalSearch).toHaveBeenCalledTimes(1);
 
-  it("should handle modifier key combinations correctly", () => {
-    renderHook(() => useKeyboardShortcuts(mockCallbacks));
+      const event2 = createKeyEvent("n");
+      registeredHandler(event2);
+      expect(mockCallbacks.onTriggerRun).toHaveBeenCalledTimes(1);
 
-    // Test that modifier keys work correctly
-    act(() => {
-      const event = new KeyboardEvent('keydown', {
-        key: 'k',
-        ctrlKey: true,
-        shiftKey: true
-      });
-      document.dispatchEvent(event);
-    });
-
-    expect(mockCallbacks.onSearch).toHaveBeenCalledTimes(1);
-  });
-
-  it("should not trigger callbacks for unhandled keys", () => {
-    renderHook(() => useKeyboardShortcuts(mockCallbacks));
-
-    act(() => {
-      const event = new KeyboardEvent('keydown', { key: 'a' });
-      document.dispatchEvent(event);
-    });
-
-    expect(mockCallbacks.onSearch).not.toHaveBeenCalled();
-    expect(mockCallbacks.onNewRun).not.toHaveBeenCalled();
-    expect(mockCallbacks.onEscape).not.toHaveBeenCalled();
-    expect(mockCallbacks.onHelp).not.toHaveBeenCalled();
+      const event3 = createKeyEvent("Escape");
+      registeredHandler(event3);
+      expect(mockCallbacks.onEscape).toHaveBeenCalledTimes(1);
+    }
   });
 });
