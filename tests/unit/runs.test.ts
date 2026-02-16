@@ -62,6 +62,21 @@ const mockRequireProjectAccess = requireProjectAccess as MockedFunction<typeof r
 const mockSimulateRun = simulateRun as MockedFunction<typeof simulateRun>;
 const mockBcryptCompare = vi.fn().mockResolvedValue(true);
 
+// Helper to create NextRequest with proper body handling for tests
+function createTestRequest(url: string, options?: { method?: string; body?: any; headers?: Record<string, string> }) {
+  if (options?.body) {
+    return new NextRequest(
+      new Request(url, {
+        method: options.method || 'GET',
+        headers: options.headers ? { 'Content-Type': 'application/json', ...options.headers } : { 'Content-Type': 'application/json' },
+        body: typeof options.body === 'string' ? options.body : JSON.stringify(options.body),
+      })
+    );
+  } else {
+    return new NextRequest(url, { method: options?.method || 'GET', headers: options?.headers });
+  }
+}
+
 describe("Tasks & Runs API Routes", () => {
   const mockUser = {
     id: "user-1",
@@ -219,9 +234,9 @@ describe("Tasks & Runs API Routes", () => {
       (prisma.task.create as any).mockResolvedValue(mockTask);
 
       const params = Promise.resolve({ slug: "test-project" });
-      const request = new NextRequest("http://localhost/api/projects/test-project/tasks", {
+      const request = createTestRequest("http://localhost/api/projects/test-project/tasks", {
         method: "POST",
-        body: JSON.stringify({
+        body: {
           name: "send-email",
           displayName: "Send Email",
           description: "Send notification email",
@@ -231,7 +246,7 @@ describe("Tasks & Runs API Routes", () => {
           ],
           timeout: 300000,
           retryLimit: 3,
-        }),
+        },
       });
 
       const response = await TasksPOST(request, { params });
@@ -257,13 +272,13 @@ describe("Tasks & Runs API Routes", () => {
       (prisma.task.findFirst as any).mockResolvedValue({ id: "existing-task" });
 
       const params = Promise.resolve({ slug: "test-project" });
-      const request = new NextRequest("http://localhost/api/projects/test-project/tasks", {
+      const request = createTestRequest("http://localhost/api/projects/test-project/tasks", {
         method: "POST",
-        body: JSON.stringify({
+        body: {
           name: "send-email",
           displayName: "Send Email",
           stepTemplates: [{ name: "Step 1", avgDuration: 1000 }],
-        }),
+        },
       });
 
       const response = await TasksPOST(request, { params });
@@ -277,12 +292,12 @@ describe("Tasks & Runs API Routes", () => {
       mockRequireProjectAccess.mockResolvedValue(mockAccessResult);
 
       const params = Promise.resolve({ slug: "test-project" });
-      const request = new NextRequest("http://localhost/api/projects/test-project/tasks", {
+      const request = createTestRequest("http://localhost/api/projects/test-project/tasks", {
         method: "POST",
-        body: JSON.stringify({
+        body: {
           name: "INVALID-NAME", // Should be lowercase
           displayName: "Test Task",
-        }),
+        },
       });
 
       const response = await TasksPOST(request, { params });
@@ -359,12 +374,12 @@ describe("Tasks & Runs API Routes", () => {
       (prisma.task.update as any).mockResolvedValue(updatedTask);
 
       const params = Promise.resolve({ slug: "test-project", id: "task-1" });
-      const request = new NextRequest("http://localhost/api/projects/test-project/tasks/task-1", {
+      const request = createTestRequest("http://localhost/api/projects/test-project/tasks/task-1", {
         method: "PUT",
-        body: JSON.stringify({
+        body: {
           displayName: "Updated Email Task",
           description: "Updated description",
-        }),
+        },
       });
 
       const response = await TaskPUT(request, { params });
@@ -532,12 +547,12 @@ describe("Tasks & Runs API Routes", () => {
       (prisma.run.create as any).mockResolvedValue(mockCreatedRun);
 
       const params = Promise.resolve({ slug: "test-project" });
-      const request = new NextRequest("http://localhost/api/projects/test-project/runs", {
+      const request = createTestRequest("http://localhost/api/projects/test-project/runs", {
         method: "POST",
-        body: JSON.stringify({
+        body: {
           taskId: "task-1",
           input: { email: "test@example.com" },
-        }),
+        },
       });
 
       const response = await RunsPOST(request, { params });
@@ -563,11 +578,11 @@ describe("Tasks & Runs API Routes", () => {
       (prisma.task.findUnique as any).mockResolvedValue(null);
 
       const params = Promise.resolve({ slug: "test-project" });
-      const request = new NextRequest("http://localhost/api/projects/test-project/runs", {
+      const request = createTestRequest("http://localhost/api/projects/test-project/runs", {
         method: "POST",
-        body: JSON.stringify({
+        body: {
           taskId: "nonexistent",
-        }),
+        },
       });
 
       const response = await RunsPOST(request, { params });
@@ -659,7 +674,7 @@ describe("Tasks & Runs API Routes", () => {
       (prisma.run.update as any).mockResolvedValue(mockCancelledRun);
 
       const params = Promise.resolve({ slug: "test-project", id: "run-1" });
-      const request = new NextRequest("http://localhost/api/projects/test-project/runs/run-1/cancel", {
+      const request = createTestRequest("http://localhost/api/projects/test-project/runs/run-1/cancel", {
         method: "POST",
       });
 
@@ -689,7 +704,7 @@ describe("Tasks & Runs API Routes", () => {
       (prisma.run.findUnique as any).mockResolvedValue(mockCompletedRun);
 
       const params = Promise.resolve({ slug: "test-project", id: "run-1" });
-      const request = new NextRequest("http://localhost/api/projects/test-project/runs/run-1/cancel", {
+      const request = createTestRequest("http://localhost/api/projects/test-project/runs/run-1/cancel", {
         method: "POST",
       });
 
@@ -741,7 +756,7 @@ describe("Tasks & Runs API Routes", () => {
       (prisma.run.create as any).mockResolvedValue(mockRetryRun);
 
       const params = Promise.resolve({ slug: "test-project", id: "run-1" });
-      const request = new NextRequest("http://localhost/api/projects/test-project/runs/run-1/retry", {
+      const request = createTestRequest("http://localhost/api/projects/test-project/runs/run-1/retry", {
         method: "POST",
       });
 
@@ -770,7 +785,7 @@ describe("Tasks & Runs API Routes", () => {
       (prisma.run.findUnique as any).mockResolvedValue(mockSuccessfulRun);
 
       const params = Promise.resolve({ slug: "test-project", id: "run-1" });
-      const request = new NextRequest("http://localhost/api/projects/test-project/runs/run-1/retry", {
+      const request = createTestRequest("http://localhost/api/projects/test-project/runs/run-1/retry", {
         method: "POST",
       });
 
@@ -883,15 +898,15 @@ describe("Tasks & Runs API Routes", () => {
       (prisma.run.create as any).mockResolvedValue(mockCreatedRun);
       (prisma.apiKey.update as any).mockResolvedValue(mockApiKey);
 
-      const request = new NextRequest("http://localhost/api/trigger", {
+      const request = createTestRequest("http://localhost/api/trigger", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${bearerToken}`,
         },
-        body: JSON.stringify({
+        body: {
           task: "send-email",
           input: { email: "test@example.com" },
-        }),
+        },
       });
 
       const response = await ExternalTrigger(request);
@@ -920,9 +935,9 @@ describe("Tasks & Runs API Routes", () => {
     });
 
     it("should return 401 for missing Authorization header", async () => {
-      const request = new NextRequest("http://localhost/api/trigger", {
+      const request = createTestRequest("http://localhost/api/trigger", {
         method: "POST",
-        body: JSON.stringify({ task: "send-email" }),
+        body: { task: "send-email" },
       });
 
       const response = await ExternalTrigger(request);
@@ -935,12 +950,12 @@ describe("Tasks & Runs API Routes", () => {
     it("should return 401 for invalid API key prefix", async () => {
       (prisma.apiKey.findUnique as any).mockResolvedValue(null);
 
-      const request = new NextRequest("http://localhost/api/trigger", {
+      const request = createTestRequest("http://localhost/api/trigger", {
         method: "POST",
         headers: {
           Authorization: "Bearer invalid-key-1234567890123456",
         },
-        body: JSON.stringify({ task: "send-email" }),
+        body: { task: "send-email" },
       });
 
       const response = await ExternalTrigger(request);
@@ -954,12 +969,12 @@ describe("Tasks & Runs API Routes", () => {
       (prisma.apiKey.findUnique as any).mockResolvedValue(mockApiKey);
       mockBcryptCompare.mockResolvedValue(false); // Wrong password
 
-      const request = new NextRequest("http://localhost/api/trigger", {
+      const request = createTestRequest("http://localhost/api/trigger", {
         method: "POST",
         headers: {
           Authorization: "Bearer sk-test-1234567890123456-wrong-key",
         },
-        body: JSON.stringify({ task: "send-email" }),
+        body: { task: "send-email" },
       });
 
       const response = await ExternalTrigger(request);
@@ -978,12 +993,12 @@ describe("Tasks & Runs API Routes", () => {
       (prisma.apiKey.findUnique as any).mockResolvedValue(expiredApiKey);
       mockBcryptCompare.mockResolvedValue(true);
 
-      const request = new NextRequest("http://localhost/api/trigger", {
+      const request = createTestRequest("http://localhost/api/trigger", {
         method: "POST",
         headers: {
           Authorization: "Bearer sk-test-1234567890123456-expired-key",
         },
-        body: JSON.stringify({ task: "send-email" }),
+        body: { task: "send-email" },
       });
 
       const response = await ExternalTrigger(request);
@@ -998,12 +1013,12 @@ describe("Tasks & Runs API Routes", () => {
       mockBcryptCompare.mockResolvedValue(true);
       (prisma.task.findFirst as any).mockResolvedValue(null);
 
-      const request = new NextRequest("http://localhost/api/trigger", {
+      const request = createTestRequest("http://localhost/api/trigger", {
         method: "POST",
         headers: {
           Authorization: "Bearer sk-test-1234567890123456-valid-key",
         },
-        body: JSON.stringify({ task: "nonexistent-task" }),
+        body: { task: "nonexistent-task" },
       });
 
       const response = await ExternalTrigger(request);
@@ -1014,12 +1029,12 @@ describe("Tasks & Runs API Routes", () => {
     });
 
     it("should return 400 for invalid request body", async () => {
-      const request = new NextRequest("http://localhost/api/trigger", {
+      const request = createTestRequest("http://localhost/api/trigger", {
         method: "POST",
         headers: {
           Authorization: "Bearer sk-test-1234567890123456-valid-key",
         },
-        body: JSON.stringify({ task: "INVALID-TASK-NAME" }), // Should be lowercase
+        body: { task: "INVALID-TASK-NAME" }, // Should be lowercase
       });
 
       const response = await ExternalTrigger(request);
