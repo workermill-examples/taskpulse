@@ -14,7 +14,7 @@ import type {
   Trace,
   Log
 } from "../generated/prisma/client";
-import { RunStatus, LogLevel } from "../generated/prisma/enums";
+import { RunStatus, LogLevel } from "../generated/prisma/client";
 
 export interface SimulatedRun {
   run: Omit<Run, 'id' | 'createdAt' | 'updatedAt'>;
