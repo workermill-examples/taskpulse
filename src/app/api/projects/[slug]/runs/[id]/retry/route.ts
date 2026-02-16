@@ -41,101 +41,77 @@ export async function POST(
       );
     }
 
-    // Check if we've exceeded retry limit
-    const inputString = originalRun.input ? JSON.stringify(originalRun.input) : null;
-    const allRuns = await prisma.run.findMany({
-      where: {
-        taskId: originalRun.taskId,
-      },
-      select: {
-        input: true,
-      },
-    });
+    // Simulate the retry run
+    const simulation = simulateRun(
+      project.id,
+      originalRun.task,
+      originalRun.input,
+      "retry"
+    );
 
-    const matchingRuns = allRuns.filter(r => {
-      const runInputString = r.input ? JSON.stringify(r.input) : null;
-      return runInputString === inputString;
-    });
-
-    const currentAttemptCount = matchingRuns.length;
-
-    if (currentAttemptCount >= originalRun.task.retryLimit + 1) { // +1 because first attempt isn't a retry
-      return NextResponse.json(
-        { error: "Retry limit exceeded for this task" },
-        { status: 400 }
-      );
-    }
-
-    // Use transaction to create retry run with all related data atomically
-    const result = await prisma.$transaction(async (tx) => {
-      // Calculate new attempt number (use the count from above)
-      const attemptCount = currentAttemptCount;
-
-      // Simulate the retry run
-      const simulation = simulateRun(
-        project.id,
-        originalRun.task,
-        originalRun.input,
-        "retry"
-      );
-
-      // Create the retry run with steps and logs
-      const retryRun = await tx.run.create({
-        data: {
-          ...simulation.run,
-          createdBy: user.id,
-          input: simulation.run.input as any,
-          traces: {
-            create: simulation.steps.map(step => ({
-              ...step,
-              runId: undefined, // Will be set by Prisma
-              metadata: step.metadata as any || {},
-            })),
-          },
-          logs: {
-            create: [
-              // Add initial retry log
-              {
-                level: "INFO",
-                message: `Retrying run ${originalRun.id} (attempt ${attemptCount + 1})`,
-                metadata: {
-                  originalRunId: originalRun.id,
-                  originalStatus: originalRun.status,
-                  attemptNumber: attemptCount + 1,
-                  retriedAt: new Date().toISOString(),
-                } as any,
-                timestamp: new Date(),
+    // Create the retry run with steps and logs
+    const result = await prisma.run.create({
+      data: {
+        projectId: simulation.run.projectId,
+        taskId: simulation.run.taskId,
+        status: simulation.run.status,
+        input: simulation.run.input as any,
+        output: simulation.run.output as any,
+        error: simulation.run.error,
+        duration: simulation.run.duration,
+        startedAt: simulation.run.startedAt,
+        completedAt: simulation.run.completedAt,
+        createdBy: user.id,
+        traces: {
+          create: simulation.steps.map(step => ({
+            name: step.name,
+            type: step.type,
+            startTime: step.startTime,
+            endTime: step.endTime,
+            duration: step.duration,
+            status: step.status,
+            parentId: step.parentId,
+            metadata: step.metadata || {},
+          })),
+        },
+        logs: {
+          create: [
+            // Add initial retry log
+            {
+              level: "INFO",
+              message: `Retrying run ${originalRun.id}`,
+              metadata: {
+                originalRunId: originalRun.id,
+                originalStatus: originalRun.status,
+                retriedAt: new Date().toISOString(),
               },
-              // Add simulated logs
-              ...simulation.logs.map(log => ({
-                ...log,
-                runId: undefined, // Will be set by Prisma
-                metadata: log.metadata as any || {},
-              })),
-            ],
-          },
-        },
-        include: {
-          task: {
-            select: {
-              id: true,
-              name: true, // Display name
-              handler: true, // Machine name
+              timestamp: new Date(),
             },
-          },
-          traces: {
-            orderBy: { startTime: "asc" },
-          },
-          logs: {
-            orderBy: { timestamp: "asc" },
+            // Add simulated logs
+            ...simulation.logs.map(log => ({
+              level: log.level,
+              message: log.message,
+              metadata: log.metadata || {},
+              timestamp: log.timestamp,
+            })),
+          ],
+        },
+      },
+      include: {
+        task: {
+          select: {
+            id: true,
+            name: true, // Display name
+            handler: true, // Machine name
           },
         },
-      });
-
-      return {
-        ...retryRun,
-        attempt: attemptCount + 1,
-      };
+        traces: {
+          orderBy: { startTime: "asc" },
+        },
+        logs: {
+          orderBy: { timestamp: "asc" },
+        },
+      },
     });
 
     // Return the new retry run with correct field mapping
@@ -150,7 +126,6 @@ export async function POST(
       completedAt: result.completedAt?.toISOString() || null,
       createdAt: result.createdAt.toISOString(),
       updatedAt: result.updatedAt.toISOString(),
-      attempt: result.attempt,
       originalRunId: originalRun.id,
       task: {
         id: result.task.id,
