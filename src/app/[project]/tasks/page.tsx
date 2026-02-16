@@ -48,7 +48,7 @@ async function getTasksForProject(projectSlug: string) {
   });
 
   // Get detailed run counts for each task
-  const taskIds = tasks.map(task => task.id);
+  const taskIds = tasks.map((task: any) => task.id);
   const runCounts = await prisma.run.groupBy({
     by: ['taskId', 'status'],
     where: {
@@ -60,7 +60,7 @@ async function getTasksForProject(projectSlug: string) {
   });
 
   // Transform tasks to include run counts and correct field mapping
-  const tasksWithCounts = tasks.map(task => {
+  const tasksWithCounts = tasks.map((task: any) => {
     // Parse step templates from config
     let stepTemplates: Array<{ name: string; avgDuration: number }> = [];
     if (task.config && typeof task.config === 'object' && task.config !== null) {
@@ -69,13 +69,13 @@ async function getTasksForProject(projectSlug: string) {
     }
 
     // Calculate run counts for this task
-    const taskRunCounts = runCounts.filter(count => count.taskId === task.id);
+    const taskRunCounts = runCounts.filter((count: any) => count.taskId === task.id);
     const runCountsByStatus = {
-      total: taskRunCounts.reduce((sum, count) => sum + count._count.id, 0),
-      completed: taskRunCounts.find(c => c.status === 'COMPLETED')?._count.id || 0,
-      failed: taskRunCounts.find(c => c.status === 'FAILED')?._count.id || 0,
-      executing: taskRunCounts.find(c => c.status === 'EXECUTING')?._count.id || 0,
-      queued: taskRunCounts.find(c => c.status === 'QUEUED')?._count.id || 0,
+      total: taskRunCounts.reduce((sum: number, count: any) => sum + count._count.id, 0),
+      completed: taskRunCounts.find((c: any) => c.status === 'COMPLETED')?._count.id || 0,
+      failed: taskRunCounts.find((c: any) => c.status === 'FAILED')?._count.id || 0,
+      executing: taskRunCounts.find((c: any) => c.status === 'EXECUTING')?._count.id || 0,
+      queued: taskRunCounts.find((c: any) => c.status === 'QUEUED')?._count.id || 0,
     };
 
     return {
@@ -132,7 +132,7 @@ export default async function TasksPage({ params }: TasksPageProps) {
       {/* Tasks Grid */}
       {tasks.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {tasks.map((task) => (
+          {tasks.map((task: any) => (
             <TaskCard
               key={task.id}
               task={task}
