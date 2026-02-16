@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, MockedFunction } from "vitest";
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 import { GET as ApiKeysGET, POST as ApiKeysPOST } from "@/app/api/projects/[slug]/api-keys/route";
@@ -15,6 +15,7 @@ vi.mock("@/lib/prisma", () => ({
       findMany: vi.fn(),
       findFirst: vi.fn(),
       create: vi.fn(),
+      update: vi.fn(),
       delete: vi.fn(),
     },
   },
@@ -121,7 +122,7 @@ describe("API Keys Routes", () => {
     });
 
     it("should handle middleware auth errors", async () => {
-      const mockErrorResponse = Response.json(
+      const mockErrorResponse = NextResponse.json(
         { error: "Authentication required" },
         { status: 401 }
       );
@@ -141,7 +142,7 @@ describe("API Keys Routes", () => {
         membership: { ...mockMembership, role: "MEMBER" as const },
       };
 
-      const mockErrorResponse = Response.json(
+      const mockErrorResponse = NextResponse.json(
         { error: "Insufficient permissions" },
         { status: 403 }
       );
@@ -341,7 +342,7 @@ describe("API Keys Routes", () => {
     });
 
     it("should require ADMIN role to create API keys", async () => {
-      const mockErrorResponse = Response.json(
+      const mockErrorResponse = NextResponse.json(
         { error: "Insufficient permissions" },
         { status: 403 }
       );
@@ -436,7 +437,7 @@ describe("API Keys Routes", () => {
     });
 
     it("should require ADMIN role to delete API keys", async () => {
-      const mockErrorResponse = Response.json(
+      const mockErrorResponse = NextResponse.json(
         { error: "Insufficient permissions" },
         { status: 403 }
       );
