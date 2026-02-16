@@ -84,26 +84,6 @@ export async function POST(
       return updated;
     });
 
-    // Calculate attempt number by counting runs for this task and input
-    const inputString = updatedRun.input ? JSON.stringify(updatedRun.input) : null;
-    const allRuns = await prisma.run.findMany({
-      where: {
-        taskId: updatedRun.taskId,
-      },
-      select: {
-        id: true,
-        input: true,
-        createdAt: true,
-      },
-    });
-
-    const matchingRuns = allRuns.filter(r => {
-      const runInputString = r.input ? JSON.stringify(r.input) : null;
-      return runInputString === inputString && r.createdAt <= updatedRun.createdAt;
-    });
-
-    const attemptCount = matchingRuns.length;
-
     // Return updated run with correct field mapping
     const response = {
       id: updatedRun.id,
@@ -116,7 +96,6 @@ export async function POST(
       completedAt: updatedRun.completedAt?.toISOString() || null,
       createdAt: updatedRun.createdAt.toISOString(),
       updatedAt: updatedRun.updatedAt.toISOString(),
-      attempt: attemptCount,
       task: {
         id: updatedRun.task.id,
         displayName: updatedRun.task.name, // Display name from name field

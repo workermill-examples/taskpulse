@@ -42,7 +42,7 @@ export const registerTaskSchema = z.object({
     avgDuration: z.number().int().min(100), // minimum 100ms
   })).min(1),
   // Frontend-specific fields that get stored in config JSON
-  displayName: z.string().min(1).max(100).optional(),
+  displayName: z.string().min(1).max(100),
   retryDelay: z.number().int().min(1000).max(300000).optional(),
   concurrency: z.number().int().min(1).max(100).optional(),
   inputSchema: z.record(z.any()).optional(),

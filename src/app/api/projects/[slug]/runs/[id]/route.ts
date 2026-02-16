@@ -46,25 +46,6 @@ export async function GET(
       return NextResponse.json({ error: "Run not found" }, { status: 404 });
     }
 
-    // Calculate attempt number
-    const inputString = run.input ? JSON.stringify(run.input) : null;
-    const allRunsForTask = await prisma.run.findMany({
-      where: {
-        taskId: run.taskId,
-      },
-      select: {
-        input: true,
-        createdAt: true,
-      },
-    });
-
-    const matchingRuns = allRunsForTask.filter(r => {
-      const runInputString = r.input ? JSON.stringify(r.input) : null;
-      return runInputString === inputString && r.createdAt <= run.createdAt;
-    });
-
-    const attemptCount = matchingRuns.length;
-
     // Return run with correct field mapping and full details
     const response = {
       id: run.id,
@@ -77,7 +58,6 @@ export async function GET(
       completedAt: run.completedAt?.toISOString() || null,
       createdAt: run.createdAt.toISOString(),
       updatedAt: run.updatedAt.toISOString(),
-      attempt: attemptCount,
       task: {
         id: run.task.id,
         displayName: run.task.name, // Display name from name field
