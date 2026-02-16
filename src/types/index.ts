@@ -102,6 +102,7 @@ export interface DashboardStats {
   runsByStatus: Record<RunStatus, number>;
   runsByTask: Array<{
     taskName: string;
+    taskDisplayName: string;
     count: number;
   }>;
   runsOverTime: Array<{
