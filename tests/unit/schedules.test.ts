@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, MockedFunction } from "vitest";
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { parseExpression } from "cron-parser";
 import { GET as SchedulesGET, POST as SchedulesPOST } from "@/app/api/projects/[slug]/schedules/route";
 import { GET as ScheduleGET, PUT as SchedulePUT, DELETE as ScheduleDELETE } from "@/app/api/projects/[slug]/schedules/[id]/route";
@@ -149,7 +149,7 @@ describe("Schedules API Routes", () => {
     });
 
     it("should handle middleware auth errors", async () => {
-      const mockErrorResponse = Response.json(
+      const mockErrorResponse = NextResponse.json(
         { error: "Authentication required" },
         { status: 401 }
       );
