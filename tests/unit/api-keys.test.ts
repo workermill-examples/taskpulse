@@ -27,25 +27,40 @@ const mockRequireProjectAccess = requireProjectAccess as MockedFunction<typeof r
 const mockBcryptHash = vi.fn();
 const mockCryptoRandomBytes = vi.fn();
 
+// Helper to create NextRequest with proper body handling for tests
+function createTestRequest(url: string, options?: { method?: string; body?: any; headers?: Record<string, string> }) {
+  if (options?.body) {
+    return new NextRequest(
+      new Request(url, {
+        method: options.method || 'GET',
+        headers: options.headers ? { 'Content-Type': 'application/json', ...options.headers } : { 'Content-Type': 'application/json' },
+        body: typeof options.body === 'string' ? options.body : JSON.stringify(options.body),
+      })
+    );
+  } else {
+    return new NextRequest(url, { method: options?.method || 'GET', headers: options?.headers });
+  }
+}
+
 describe("API Keys Routes", () => {
   const mockUser = {
-    id: "user-1",
+    id: "550e8400-e29b-41d4-a716-446655440000",
     email: "admin@example.com",
     name: "Admin User",
   };
 
   const mockProject = {
-    id: "project-1",
+    id: "550e8400-e29b-41d4-a716-446655440001",
     name: "Test Project",
     slug: "test-project",
     description: "A test project",
   };
 
   const mockMembership = {
-    id: "member-1",
+    id: "550e8400-e29b-41d4-a716-446655440002",
     role: "ADMIN" as const,
-    userId: "user-1",
-    projectId: "project-1",
+    userId: "550e8400-e29b-41d4-a716-446655440000",
+    projectId: "550e8400-e29b-41d4-a716-446655440001",
     user: mockUser,
     project: mockProject,
   };
@@ -107,7 +122,7 @@ describe("API Keys Routes", () => {
       );
 
       expect(prisma.apiKey.findMany).toHaveBeenCalledWith({
-        where: { projectId: "project-1" },
+        where: { projectId: "550e8400-e29b-41d4-a716-446655440001" },
         orderBy: { createdAt: "desc" },
         select: {
           id: true,
@@ -185,12 +200,12 @@ describe("API Keys Routes", () => {
       (prisma.apiKey.create as any).mockResolvedValue(mockCreatedApiKey);
 
       const params = Promise.resolve({ slug: "test-project" });
-      const request = new NextRequest("http://localhost/api/projects/test-project/api-keys", {
+      const request = createTestRequest("http://localhost/api/projects/test-project/api-keys", {
         method: "POST",
-        body: JSON.stringify({
+        body: {
           name: "Production API Key",
           expiresAt: "2024-12-31T23:59:59Z",
-        }),
+        },
       });
 
       const response = await ApiKeysPOST(request, { params });
@@ -221,8 +236,8 @@ describe("API Keys Routes", () => {
           keyPreview: expect.any(String),
           permissions: {},
           expiresAt: new Date("2024-12-31T23:59:59Z"),
-          projectId: "project-1",
-          createdBy: "user-1",
+          projectId: "550e8400-e29b-41d4-a716-446655440001",
+          createdBy: "550e8400-e29b-41d4-a716-446655440000",
         },
         select: {
           id: true,
@@ -390,7 +405,7 @@ describe("API Keys Routes", () => {
       expect(prisma.apiKey.findFirst).toHaveBeenCalledWith({
         where: {
           id: "api-key-1",
-          projectId: "project-1",
+          projectId: "550e8400-e29b-41d4-a716-446655440001",
         },
       });
 
