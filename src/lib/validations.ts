@@ -57,3 +57,9 @@ export const runFilterSchema = z.object({
   from: z.string().datetime().optional(),
   to: z.string().datetime().optional(),
 });
+
+// External trigger schema
+export const externalTriggerSchema = z.object({
+  task: z.string().min(1).max(100).regex(/^[a-z0-9-]+$/, "Task name must be lowercase with hyphens only"),
+  input: z.record(z.any()).optional(),
+});
