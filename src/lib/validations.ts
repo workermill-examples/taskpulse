@@ -67,3 +67,19 @@ export const externalTriggerSchema = z.object({
   task: z.string().min(1).max(100).regex(/^[a-z0-9-]+$/, "Task name must be lowercase with hyphens only"),
   input: z.record(z.any()).optional(),
 });
+
+// Schedule schemas
+export const createScheduleSchema = z.object({
+  taskId: z.string().uuid(),
+  cronExpression: z.string().min(1).max(100),
+  description: z.string().optional(),
+  timezone: z.string().default("UTC"),
+  enabled: z.boolean().default(true),
+});
+
+export const updateScheduleSchema = z.object({
+  cronExpression: z.string().min(1).max(100).optional(),
+  description: z.string().optional(),
+  timezone: z.string().optional(),
+  enabled: z.boolean().optional(),
+});
