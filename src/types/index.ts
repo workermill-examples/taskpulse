@@ -12,3 +12,110 @@ export interface PaginatedResponse<T> {
   cursor?: string;
   hasMore: boolean;
 }
+
+// API Response types for routes
+export interface ProjectListItem {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  memberCount: number;
+  taskCount: number;
+  recentRunCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RunListItem {
+  id: string;
+  status: RunStatus;
+  startedAt: string | null;
+  completedAt: string | null;
+  duration: number | null;
+  error: string | null;
+  triggeredBy: string;
+  attempt: number;
+  createdAt: string;
+  task: {
+    id: string;
+    displayName: string;
+    name: string;
+  };
+}
+
+export interface TaskWithRunCounts {
+  id: string;
+  name: string;
+  displayName: string;
+  description?: string | null;
+  retryLimit: number;
+  retryDelay: number;
+  timeout: number;
+  concurrency: number;
+  inputSchema: Record<string, any> | null;
+  stepTemplates: Array<{
+    name: string;
+    avgDuration: number;
+  }>;
+  createdAt: string;
+  updatedAt: string;
+  runCounts: {
+    total: number;
+    completed: number;
+    failed: number;
+    executing: number;
+    queued: number;
+  };
+  lastRun?: {
+    id: string;
+    status: RunStatus;
+    startedAt: string | null;
+    completedAt: string | null;
+  } | null;
+}
+
+export interface MemberWithUser {
+  id: string;
+  role: MemberRole;
+  createdAt: string;
+  updatedAt: string;
+  user: {
+    id: string;
+    email: string;
+    name: string | null;
+  };
+}
+
+export interface ScheduleWithTask {
+  id: string;
+  name: string;
+  cronExpression: string;
+  enabled: boolean;
+  timezone: string;
+  nextRunAt: string | null;
+  lastRunAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  task: {
+    id: string;
+    name: string;
+    displayName: string;
+  };
+}
+
+export interface DashboardStats {
+  runsByStatus: Record<RunStatus, number>;
+  runsByTask: Array<{
+    taskName: string;
+    taskDisplayName: string;
+    count: number;
+  }>;
+  runsOverTime: Array<{
+    date: string;
+    count: number;
+  }>;
+  avgDuration: number | null;
+  successRate: number;
+  totalRuns: number;
+  failedRuns: number;
+}
