@@ -293,19 +293,27 @@ async function main() {
         data: {
           ...runData.run,
           createdAt: runDate,
+          input: runData.run.input as any,
+          output: runData.run.output as any,
           traces: {
-            create: runData.steps.map(step => ({
-              ...step,
-              runId: undefined, // Will be auto-set by Prisma
-            })),
+            create: runData.steps.map(step => {
+              const { runId, ...stepWithoutRunId } = step;
+              return {
+                ...stepWithoutRunId,
+                metadata: stepWithoutRunId.metadata as any,
+              };
+            }),
           },
           logs: {
-            create: runData.logs.map(log => ({
-              ...log,
-              runId: undefined, // Will be auto-set by Prisma
-            })),
+            create: runData.logs.map(log => {
+              const { runId, ...logWithoutRunId } = log;
+              return {
+                ...logWithoutRunId,
+                metadata: logWithoutRunId.metadata as any,
+              };
+            }),
           },
-        },
+        } as any,
         include: {
           traces: true,
           logs: true,
@@ -410,6 +418,7 @@ async function main() {
 
   for (const keyData of apiKeys) {
     const keyHash = await bcrypt.hash(keyData.key, 12);
+    const keyPrefix = keyData.key.substring(0, 16); // First 16 chars for efficient lookup
     const keyPreview = "..." + keyData.key.slice(-4); // Last 4 chars for UI display
 
     // Check if API key already exists by name in this project
@@ -425,6 +434,7 @@ async function main() {
         data: {
           name: keyData.name,
           keyHash,
+          keyPrefix,
           keyPreview,
           permissions: keyData.permissions,
           expiresAt: keyData.expiresAt,
