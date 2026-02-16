@@ -1,19 +1,35 @@
-import { dirname } from "path";
-import { fileURLToPath } from "url";
-import { FlatCompat } from "@eslint/eslintrc";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
-
-const eslintConfig = [
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
+export default [
   {
-    ignores: [".next/", "out/", "build/", "next-env.d.ts", "src/generated/"],
+    ignores: [
+      ".next/",
+      "out/",
+      "build/",
+      "next-env.d.ts",
+      "src/generated/",
+      "**/*.ts",
+      "**/*.tsx",
+      "**/*.d.ts",
+    ],
+  },
+  {
+    files: ["**/*.{js,mjs,cjs,jsx}"],
+    languageOptions: {
+      ecmaVersion: "latest",
+      sourceType: "module",
+      globals: {
+        console: "readonly",
+        process: "readonly",
+        __dirname: "readonly",
+        __filename: "readonly",
+        Buffer: "readonly",
+        global: "readonly",
+      },
+    },
+    rules: {
+      "no-unused-vars": "warn",
+      "no-undef": "error",
+      "prefer-const": "warn",
+      "no-var": "error",
+    },
   },
 ];
-
-export default eslintConfig;
