@@ -226,6 +226,7 @@ model ApiKey {
   id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name        String
   keyHash     String    @unique // Hashed API key
+  keyPrefix   String    @unique // First 16 characters for efficient lookup
   keyPreview  String    // Last 4 characters for UI display
   permissions Json      @default("{}")
   expiresAt   DateTime?
@@ -242,6 +243,7 @@ model ApiKey {
   creator User    @relation(fields: [createdBy], references: [id])
 
   @@index([projectId])
+  @@index([keyPrefix])
   @@map("api_keys")
 }
 

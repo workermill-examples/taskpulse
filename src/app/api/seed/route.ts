@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import bcrypt from "bcrypt";
-import { prisma } from "@/lib/prisma";
+import { promisify } from "util";
+
+const exec = promisify(require("child_process").exec);
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,33 +31,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create demo user (idempotent - uses upsert)
-    const passwordHash = await bcrypt.hash("demo1234", 12);
-
-    const user = await prisma.user.upsert({
-      where: { email: "demo@workermill.com" },
-      update: {},
-      create: {
-        email: "demo@workermill.com",
-        name: "Demo User",
-        passwordHash,
-      },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        createdAt: true,
-      },
+    // Execute the expanded seed script
+    console.log("Running expanded seed script...");
+    const { stdout, stderr } = await exec("npm run db:seed", {
+      cwd: process.cwd(),
+      env: process.env,
     });
 
+    console.log("Seed stdout:", stdout);
+    if (stderr) {
+      console.warn("Seed stderr:", stderr);
+    }
+
     return NextResponse.json(
-      { message: "Seed completed successfully", user },
+      {
+        message: "Expanded seed completed successfully",
+        output: stdout,
+        warnings: stderr || null
+      },
       { status: 200 }
     );
-  } catch (error) {
+  } catch (error: any) {
     console.error("Seed error:", error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      {
+        error: "Seed execution failed",
+        details: error.message,
+        output: error.stdout || null,
+        errorOutput: error.stderr || null
+      },
       { status: 500 }
     );
   }
