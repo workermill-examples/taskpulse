@@ -13,6 +13,7 @@ import { POST as ExternalTrigger } from "@/app/api/trigger/route";
 import { requireProjectAccess } from "@/lib/middleware";
 import { prisma } from "@/lib/prisma";
 import { simulateRun } from "@/lib/run-simulator";
+import { RunStatus, LogLevel } from "@/generated/prisma/client";
 import type { RunListItem, TaskWithRunCounts, DashboardStats } from "@/types";
 
 // Mock dependencies
@@ -59,7 +60,7 @@ vi.mock("bcrypt");
 
 const mockRequireProjectAccess = requireProjectAccess as MockedFunction<typeof requireProjectAccess>;
 const mockSimulateRun = simulateRun as MockedFunction<typeof simulateRun>;
-const mockBcryptCompare = bcrypt.compare as MockedFunction<typeof bcrypt.compare>;
+const mockBcryptCompare = vi.fn().mockResolvedValue(true);
 
 describe("Tasks & Runs API Routes", () => {
   const mockUser = {
@@ -92,10 +93,9 @@ describe("Tasks & Runs API Routes", () => {
 
   const mockTask = {
     id: "task-1",
-    name: "send-email",
-    displayName: "Send Email",
+    name: "Send Email", // This becomes displayName in API response
     description: "Send notification email",
-    handler: "send-email",
+    handler: "send-email", // This becomes name in API response
     config: JSON.stringify({
       stepTemplates: [
         { name: "Prepare email", avgDuration: 500 },
@@ -106,26 +106,27 @@ describe("Tasks & Runs API Routes", () => {
     retryLimit: 3,
     priority: 0,
     tags: [],
+    isActive: true,
     projectId: "project-1",
+    createdBy: "user-1",
     createdAt: new Date("2024-01-01T00:00:00Z"),
     updatedAt: new Date("2024-01-01T00:00:00Z"),
   };
 
   const mockRun = {
     id: "run-1",
-    status: "COMPLETED",
+    status: RunStatus.COMPLETED,
     startedAt: new Date("2024-01-01T10:00:00Z"),
     completedAt: new Date("2024-01-01T10:01:00Z"),
     duration: 60000,
     error: null,
     input: {},
     output: { success: true },
-    triggeredBy: "manual",
-    attempt: 1,
     taskId: "task-1",
     projectId: "project-1",
     createdBy: "user-1",
     createdAt: new Date("2024-01-01T10:00:00Z"),
+    updatedAt: new Date("2024-01-01T10:00:00Z"),
     task: {
       id: "task-1",
       name: "send-email",
@@ -135,6 +136,7 @@ describe("Tasks & Runs API Routes", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    (bcrypt.compare as any) = mockBcryptCompare;
   });
 
   describe("GET /api/projects/[slug]/tasks", () => {
@@ -150,21 +152,23 @@ describe("Tasks & Runs API Routes", () => {
           runs: [
             {
               id: "run-1",
-              status: "COMPLETED",
+              status: RunStatus.COMPLETED,
               startedAt: new Date("2024-01-01T10:00:00Z"),
               completedAt: new Date("2024-01-01T10:01:00Z"),
             },
           ],
-          runCounts: {
-            completed: 8,
-            failed: 1,
-            executing: 1,
-            queued: 0,
-          },
         },
       ];
 
+      // Mock the run counts query
+      const mockRunCounts = [
+        { taskId: "task-1", status: RunStatus.COMPLETED, _count: { id: 8 } },
+        { taskId: "task-1", status: RunStatus.FAILED, _count: { id: 1 } },
+        { taskId: "task-1", status: RunStatus.EXECUTING, _count: { id: 1 } },
+      ];
+
       (prisma.task.findMany as any).mockResolvedValue(mockTasksData);
+      (prisma.run.groupBy as any).mockResolvedValue(mockRunCounts);
 
       const params = Promise.resolve({ slug: "test-project" });
       const request = new NextRequest("http://localhost/api/projects/test-project/tasks");
@@ -172,8 +176,9 @@ describe("Tasks & Runs API Routes", () => {
       const data = await response.json();
 
       expect(response.status).toBe(200);
-      expect(data).toHaveLength(1);
-      expect(data[0]).toMatchObject({
+      expect(data.data).toHaveLength(1);
+      expect(data.hasMore).toBe(false);
+      expect(data.data[0]).toMatchObject({
         id: "task-1",
         name: "send-email",
         displayName: "Send Email",
@@ -408,8 +413,8 @@ describe("Tasks & Runs API Routes", () => {
           ...mockRun,
           task: {
             id: "task-1",
-            name: "send-email",
-            displayName: "Send Email",
+            name: "Send Email", // This becomes displayName in API response
+            handler: "send-email", // This becomes name in API response
           },
         },
       ];
@@ -480,15 +485,13 @@ describe("Tasks & Runs API Routes", () => {
 
       const mockSimulatedRun = {
         run: {
-          status: "COMPLETED",
+          status: RunStatus.COMPLETED,
           startedAt: new Date("2024-01-01T10:00:00Z"),
           completedAt: new Date("2024-01-01T10:01:00Z"),
           duration: 60000,
           error: null,
           input: { email: "test@example.com" },
           output: { success: true },
-          triggeredBy: "manual",
-          attempt: 1,
           taskId: "task-1",
           projectId: "project-1",
           createdBy: "user-1",
@@ -496,21 +499,23 @@ describe("Tasks & Runs API Routes", () => {
         steps: [
           {
             name: "Prepare email",
-            status: "COMPLETED",
+            type: "step",
+            status: "success",
             startTime: new Date("2024-01-01T10:00:00Z"),
             endTime: new Date("2024-01-01T10:00:30Z"),
             duration: 30000,
-            output: {},
-            error: null,
-            position: 0,
+            metadata: { stepIndex: 0 },
+            runId: "run-1",
+            parentId: null,
           },
         ],
         logs: [
           {
-            level: "INFO",
+            level: LogLevel.INFO,
             message: "Starting email preparation",
             timestamp: new Date("2024-01-01T10:00:00Z"),
-            metadata: {},
+            metadata: { stepIndex: 0 },
+            runId: "run-1",
           },
         ],
       };
@@ -697,13 +702,12 @@ describe("Tasks & Runs API Routes", () => {
   });
 
   describe("POST /api/projects/[slug]/runs/[id]/retry", () => {
-    it("should create retry run with incremented attempt", async () => {
+    it("should create retry run for failed run", async () => {
       mockRequireProjectAccess.mockResolvedValue(mockAccessResult);
 
       const mockFailedRun = {
         ...mockRun,
         status: "FAILED",
-        attempt: 1,
         input: { email: "test@example.com" },
         task: mockTask,
       };
@@ -711,16 +715,25 @@ describe("Tasks & Runs API Routes", () => {
       const mockRetryRun = {
         ...mockRun,
         id: "run-2",
-        attempt: 2,
         status: "COMPLETED",
+        task: mockTask,
+        traces: [],
+        logs: [],
       };
 
       (prisma.run.findUnique as any).mockResolvedValue(mockFailedRun);
       mockSimulateRun.mockReturnValue({
         run: {
-          ...mockFailedRun,
-          attempt: 2,
-          status: "COMPLETED",
+          status: RunStatus.COMPLETED,
+          projectId: "project-1",
+          taskId: "task-1",
+          createdBy: "user-1",
+          input: { email: "test@example.com" },
+          output: { success: true },
+          error: null,
+          duration: 30000,
+          startedAt: new Date("2024-01-01T10:00:00Z"),
+          completedAt: new Date("2024-01-01T10:00:30Z"),
         },
         steps: [],
         logs: [],
@@ -736,7 +749,8 @@ describe("Tasks & Runs API Routes", () => {
       const data = await response.json();
 
       expect(response.status).toBe(201);
-      expect(data.attempt).toBe(2);
+      expect(data.originalRunId).toBe("run-1");
+      expect(data.status).toBe("COMPLETED");
       expect(mockSimulateRun).toHaveBeenCalledWith(
         "project-1",
         mockTask,
@@ -789,7 +803,7 @@ describe("Tasks & Runs API Routes", () => {
       };
 
       // Mock the complex aggregation queries
-      (prisma.run.findMany as any).mockImplementation(({ select, where }) => {
+      (prisma.run.findMany as any).mockImplementation(({ select, where }: any) => {
         if (select && select.status) {
           return [
             { status: "COMPLETED" },
@@ -840,8 +854,16 @@ describe("Tasks & Runs API Routes", () => {
       (prisma.task.findFirst as any).mockResolvedValue(mockTask);
       mockSimulateRun.mockReturnValue({
         run: {
-          ...mockRun,
-          triggeredBy: "api",
+          status: RunStatus.COMPLETED,
+          projectId: "project-1",
+          taskId: "task-1",
+          createdBy: "user-1",
+          input: { task: "send-email" },
+          output: { success: true },
+          error: null,
+          duration: 30000,
+          startedAt: new Date("2024-01-01T10:00:00Z"),
+          completedAt: new Date("2024-01-01T10:00:30Z"),
         },
         steps: [],
         logs: [],
@@ -850,7 +872,6 @@ describe("Tasks & Runs API Routes", () => {
       const mockCreatedRun = {
         ...mockRun,
         id: "run-2",
-        triggeredBy: "api",
         task: {
           name: "send-email",
           description: "Send notification email",

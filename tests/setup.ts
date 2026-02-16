@@ -56,7 +56,7 @@ vi.mock("next/server", () => ({
       const status = init?.status || 200;
       const body = status === 204 ? null : JSON.stringify(data);
 
-      return new MockNextResponse(body, {
+      return new MockNextResponse(body as BodyInit, {
         status: status,
         headers: status === 204 ? {} : {
           "Content-Type": "application/json",

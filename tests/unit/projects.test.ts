@@ -39,7 +39,7 @@ vi.mock("@/lib/prisma", () => ({
 }));
 vi.mock("@/lib/middleware");
 
-const mockAuth = auth as MockedFunction<typeof auth>;
+const mockAuth = auth as unknown as MockedFunction<() => Promise<any>>;
 const mockRequireProjectAccess = requireProjectAccess as MockedFunction<typeof requireProjectAccess>;
 const mockGetUserProjectMembership = getUserProjectMembership as MockedFunction<typeof getUserProjectMembership>;
 const mockHasPermission = hasPermission as MockedFunction<typeof hasPermission>;
