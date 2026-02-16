@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, MockedFunction } from "vitest";
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { GET as ProjectsGET, POST as ProjectsPOST } from "@/app/api/projects/route";
 import { GET as ProjectGET, PUT as ProjectPUT, DELETE as ProjectDELETE } from "@/app/api/projects/[slug]/route";
 import { GET as MembersGET, POST as MembersPOST } from "@/app/api/projects/[slug]/members/route";
@@ -298,7 +298,7 @@ describe("Projects API Routes", () => {
     });
 
     it("should return auth error response from middleware", async () => {
-      const mockErrorResponse = Response.json(
+      const mockErrorResponse = NextResponse.json(
         { error: "Project not found" },
         { status: 404 }
       );
@@ -357,7 +357,7 @@ describe("Projects API Routes", () => {
     });
 
     it("should return 403 for insufficient permissions", async () => {
-      const mockErrorResponse = Response.json(
+      const mockErrorResponse = NextResponse.json(
         { error: "Insufficient permissions" },
         { status: 403 }
       );
