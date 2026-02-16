@@ -24,12 +24,12 @@ interface ChartsProps {
 export function Charts({ stats }: ChartsProps) {
   // Status colors matching the design system
   const statusColors = {
-    COMPLETED: "#34d399", // emerald-400
+    COMPLETED: "#34d399", // emerald-400 (green)
     FAILED: "#f87171", // red-400
-    QUEUED: "#9ca3af", // gray-400
-    EXECUTING: "#60a5fa", // blue-400
+    QUEUED: "#60a5fa", // blue-400
+    EXECUTING: "#fbbf24", // yellow-400
     CANCELLED: "#6b7280", // gray-500
-    TIMED_OUT: "#fbbf24", // amber-400
+    TIMED_OUT: "#fb923c", // orange-400
   };
 
   // Prepare data for runs by status donut chart
