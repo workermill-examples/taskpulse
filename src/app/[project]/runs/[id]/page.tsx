@@ -1,67 +1,11 @@
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import RunStatusBadge from "@/components/runs/RunStatusBadge";
 import RunTimeline from "@/components/runs/RunTimeline";
 import RunLogs from "@/components/runs/RunLogs";
 import { cn } from "@/lib/utils";
 import type { RunStatus } from "@/types";
-
-interface RunDetail {
-  id: string;
-  status: RunStatus;
-  input: any;
-  output: any;
-  error: string | null;
-  duration: number | null;
-  startedAt: string | null;
-  completedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-  task: {
-    id: string;
-    displayName: string;
-    name: string;
-    retryLimit: number;
-    timeout: number | null;
-  };
-  traces: Array<{
-    id: string;
-    name: string;
-    type: string;
-    startTime: string;
-    endTime?: string | null;
-    duration?: number | null;
-    status: RunStatus;
-    metadata?: Record<string, any> | null;
-  }>;
-  logs: Array<{
-    id: string;
-    level: "DEBUG" | "INFO" | "WARN" | "ERROR";
-    message: string;
-    metadata?: Record<string, any> | null;
-    timestamp: string;
-  }>;
-}
-
-async function fetchRunDetails(projectSlug: string, runId: string): Promise<RunDetail> {
-  const url = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/projects/${projectSlug}/runs/${runId}`;
-
-  const response = await fetch(url, {
-    headers: {
-      'Cookie': '', // Server-side fetch doesn't automatically include cookies
-    },
-    cache: 'no-store', // Always fetch fresh data
-  });
-
-  if (!response.ok) {
-    if (response.status === 404) {
-      notFound();
-    }
-    throw new Error(`Failed to fetch run details: ${response.status}`);
-  }
-
-  return response.json();
-}
 
 function formatDuration(ms: number | null): string {
   if (!ms) return "—";
@@ -97,13 +41,80 @@ export default async function RunDetailPage({
     redirect("/login");
   }
 
-  let run: RunDetail;
-  try {
-    run = await fetchRunDetails(project, id);
-  } catch (error) {
-    console.error("Error fetching run details:", error);
+  // Query Prisma directly (server component — no API roundtrip needed)
+  const projectRecord = await prisma.project.findUnique({
+    where: { slug: project },
+    select: { id: true },
+  });
+
+  if (!projectRecord) {
     notFound();
   }
+
+  const dbRun = await prisma.run.findFirst({
+    where: {
+      id,
+      projectId: projectRecord.id,
+    },
+    include: {
+      task: {
+        select: {
+          id: true,
+          name: true,
+          handler: true,
+          retryLimit: true,
+          timeout: true,
+        },
+      },
+      traces: {
+        orderBy: { startTime: "asc" },
+      },
+      logs: {
+        orderBy: { timestamp: "asc" },
+      },
+    },
+  });
+
+  if (!dbRun) {
+    notFound();
+  }
+
+  const run = {
+    id: dbRun.id,
+    status: dbRun.status as RunStatus,
+    input: dbRun.input,
+    output: dbRun.output,
+    error: dbRun.error,
+    duration: dbRun.duration,
+    startedAt: dbRun.startedAt?.toISOString() || null,
+    completedAt: dbRun.completedAt?.toISOString() || null,
+    createdAt: dbRun.createdAt.toISOString(),
+    updatedAt: dbRun.updatedAt.toISOString(),
+    task: {
+      id: dbRun.task.id,
+      displayName: dbRun.task.name,
+      name: dbRun.task.handler,
+      retryLimit: dbRun.task.retryLimit,
+      timeout: dbRun.task.timeout,
+    },
+    traces: dbRun.traces.map(trace => ({
+      id: trace.id,
+      name: trace.name,
+      type: trace.type,
+      startTime: trace.startTime.toISOString(),
+      endTime: trace.endTime?.toISOString() || null,
+      duration: trace.duration,
+      status: trace.status as RunStatus,
+      metadata: trace.metadata as Record<string, any> | null,
+    })),
+    logs: dbRun.logs.map(log => ({
+      id: log.id,
+      level: log.level as "DEBUG" | "INFO" | "WARN" | "ERROR",
+      message: log.message,
+      metadata: log.metadata as Record<string, any> | null,
+      timestamp: log.timestamp.toISOString(),
+    })),
+  };
 
   const canRetry = run.status === "FAILED";
   const canCancel = run.status === "QUEUED" || run.status === "EXECUTING";

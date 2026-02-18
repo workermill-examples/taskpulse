@@ -1,213 +1,204 @@
 # TaskPulse
 
-> **TaskPulse Showcase** | Built autonomously by [WorkerMill](https://workermill.com)
+**A real-time task monitoring dashboard built entirely by AI agents.**
 
-A modern background task monitoring dashboard that provides real-time observability for your distributed systems.
+TaskPulse is a showcase application demonstrating [WorkerMill](https://workermill.com) — an autonomous AI coding platform that takes Jira/Linear/GitHub tickets and ships production code. Every line of code in this repository was written, tested, and deployed by WorkerMill's AI workers.
 
-## Features
+[Live Demo](https://taskpulse.workermill.com) | [WorkerMill Platform](https://workermill.com) | [Documentation](https://workermill.com/docs)
 
-🔍 **Task Registry** - Register and manage background tasks across your infrastructure
-📊 **Real-time Traces** - Monitor task execution with detailed timing and performance metrics
-📡 **Log Streaming** - Stream logs in real-time with filtering and search capabilities
-⏰ **Scheduling** - Cron-based task scheduling with human-readable descriptions
-🔔 **Webhooks** - Event-driven notifications for task completion and failures
-👥 **Team Collaboration** - Multi-project organization with role-based access control
-
-## Tech Stack
-
-### Core Framework
-- **[Next.js 16](https://nextjs.org/)** - React framework with App Router and Turbopack
-- **[React 19](https://react.dev/)** - Latest React with concurrent features
-- **[TypeScript](https://www.typescriptlang.org/)** - Type-safe development
-
-### Database & Authentication
-- **[Prisma 7](https://www.prisma.io/)** - Next-generation ORM with Neon adapter
-- **[Neon](https://neon.tech/)** - Serverless PostgreSQL with connection pooling
-- **[NextAuth v5](https://authjs.dev/)** - Modern authentication solution
-
-### UI & Styling
-- **[Tailwind CSS v4](https://tailwindcss.com/)** - Utility-first CSS with CSS-first configuration
-- **[Headless UI](https://headlessui.com/)** - Accessible component primitives
-- **[Recharts](https://recharts.org/)** - Composable charting library
-
-### DevOps & Quality
-- **[GitHub Actions](https://github.com/features/actions)** - CI/CD pipelines
-- **[Vitest](https://vitest.dev/)** - Fast unit testing framework
-- **[Playwright](https://playwright.dev/)** - Reliable end-to-end testing
-- **[Vercel](https://vercel.com/)** - Zero-config deployments
-
-## Quick Start
-
-### Prerequisites
-
-- Node.js 22+
-- npm or yarn
-- PostgreSQL database (we recommend [Neon](https://neon.tech/))
-
-### Setup
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/workermill-examples/taskpulse.git
-   cd taskpulse
-   ```
-
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
-
-3. **Set up environment variables**
-   ```bash
-   cp .env.example .env
-   ```
-
-   Edit `.env` and configure:
-   ```bash
-   # Database connections (both required for Prisma 7)
-   DATABASE_URL="postgresql://user:pass@host:5432/taskpulse"
-   DIRECT_DATABASE_URL="postgresql://user:pass@host:5432/taskpulse"
-
-   # Authentication
-   NEXTAUTH_SECRET="your-secret-key-here"
-   NEXTAUTH_URL="http://localhost:3000"
-   AUTH_TRUST_HOST="true"
-
-   # Seeding
-   SEED_TOKEN="your-seed-token"
-   ```
-
-4. **Initialize the database**
-   ```bash
-   npx prisma generate    # Generate the Prisma client
-   npx prisma db push     # Create database schema
-   npm run db:seed        # Seed with demo data
-   ```
-
-5. **Start the development server**
-   ```bash
-   npm run dev
-   ```
-
-Visit [http://localhost:3000](http://localhost:3000) and sign in with:
-- **Email**: `demo@workermill.com`
-- **Password**: `demo1234`
-
-## Development
-
-### Available Scripts
-
-```bash
-npm run dev          # Start development server
-npm run build        # Build for production
-npm run start        # Start production server
-npm run lint         # Run ESLint
-npm run typecheck    # Type checking with TypeScript
-npm run test         # Run unit tests
-npm run test:watch   # Run tests in watch mode
-npm run test:e2e     # Run end-to-end tests
-npm run format       # Format code with Prettier
-
-# Database commands
-npm run db:push      # Push schema changes to database
-npm run db:migrate   # Deploy migrations (production)
-npm run db:seed      # Seed demo data
-npm run db:studio    # Open Prisma Studio
-```
-
-### Project Structure
-
-```
-taskpulse/
-├── src/
-│   ├── app/                  # Next.js App Router pages
-│   │   ├── api/             # API routes
-│   │   ├── [project]/       # Dynamic project routes
-│   │   └── auth/           # Authentication pages
-│   ├── components/         # React components
-│   │   └── shared/        # Reusable components
-│   ├── lib/               # Utilities and configurations
-│   ├── hooks/             # Custom React hooks
-│   └── types/             # TypeScript type definitions
-├── prisma/                # Database schema and migrations
-├── tests/                 # Test files
-│   ├── unit/             # Unit tests
-│   └── e2e/              # End-to-end tests
-├── .github/workflows/    # CI/CD pipelines
-└── public/              # Static assets
-```
-
-### Code Conventions
-
-- **Dark Theme**: All UI uses dark styling (`bg-gray-950`, `text-gray-100`)
-- **Async Params**: Next.js 16 requires `await params` in all route handlers
-- **Prisma Import**: Use `import { PrismaClient } from "@/generated/prisma"`
-- **Authentication**: Protected routes must call `auth()` and redirect if no session
-
-## Architecture
-
-### Database Schema
-
-The application uses a normalized PostgreSQL schema with 10 models:
-
-- **User Management**: `User`, `Project`, `ProjectMember`
-- **Task System**: `Task`, `TaskRun`, `TaskLog`
-- **Automation**: `Schedule`, `Webhook`
-- **Security**: `ApiKey`, `InviteToken`
-
-### Authentication Flow
-
-1. **Credentials Provider**: Email/password authentication with bcrypt hashing
-2. **Session Management**: JWT-based sessions with NextAuth v5
-3. **Route Protection**: Server-side session validation in page components
-4. **Role-Based Access**: Project-level permissions (OWNER, ADMIN, MEMBER, VIEWER)
-
-### Real-time Features
-
-- **Server-Sent Events**: Live log streaming and task updates
-- **WebSocket Integration**: Real-time dashboard updates
-- **Event Sourcing**: Comprehensive audit trails for all operations
-
-## Deployment
-
-### Production Deployment
-
-The application is configured for deployment on Vercel with automatic:
-
-1. **Build Process**: Next.js production build with static optimization
-2. **Database Migrations**: Automated via GitHub Actions
-3. **Health Checks**: Post-deployment validation
-4. **Demo Data Seeding**: Automated demo user creation
-
-### Environment Setup
-
-Production requires:
-- Neon PostgreSQL database with connection pooling
-- GitHub repository secrets for database URLs and API keys
-- Vercel project connected to the repository
-
-## Contributing
-
-### Quality Standards
-
-All contributions must pass:
-- `npm run typecheck` - Zero TypeScript errors
-- `npm run lint` - Zero ESLint errors
-- `npm run test` - All unit tests passing
-- `npm run test:e2e` - End-to-end tests passing
-
-### Development Workflow
-
-1. Create feature branch from `main`
-2. Implement changes with tests
-3. Ensure all quality checks pass
-4. Create pull request with detailed description
-5. Automated CI/CD validates the changes
-
-## License
-
-This project is part of the WorkerMill showcase and is available under the MIT License.
+[![CI](https://github.com/workermill-examples/taskpulse/actions/workflows/ci.yml/badge.svg)](https://github.com/workermill-examples/taskpulse/actions/workflows/ci.yml)
+[![Deploy](https://github.com/workermill-examples/taskpulse/actions/workflows/deploy.yml/badge.svg)](https://github.com/workermill-examples/taskpulse/actions/workflows/deploy.yml)
 
 ---
 
-**Built with ❤️ by [WorkerMill](https://workermill.com) - Autonomous AI Workers for Modern Development**
+## What's Inside
+
+TaskPulse is a real, functional background task monitoring platform — not a toy demo. It includes:
+
+- **Task Registry** — Register and manage background tasks across your infrastructure
+- **Real-time Traces** — Monitor task execution with detailed timing and hierarchical trace visualization
+- **Log Streaming** — Stream logs via Server-Sent Events with level filtering and search
+- **Dashboard Analytics** — KPI cards, execution charts, and status breakdowns per project
+- **Cron Scheduling** — Create and manage cron-based schedules with human-readable descriptions
+- **Webhooks** — Event-driven notifications with HMAC signing and delivery tracking
+- **API Keys** — Scoped API key management with hashed storage and usage tracking
+- **Team Collaboration** — Multi-project organization with role-based access (Owner, Admin, Member, Viewer)
+- **Keyboard Shortcuts** — Global search and navigation shortcuts
+
+## How It Was Built
+
+TaskPulse was created across multiple WorkerMill task runs (called "epics"), each triggered by tickets on a project board:
+
+| Epic | Stories | What Was Built |
+|------|---------|----------------|
+| TP-1 | 8 | Project scaffolding, Prisma 7 + Neon adapter, auth, RBAC middleware, run simulation engine, task/run CRUD routes, expanded seed data, 40+ unit tests, CI/CD |
+| TP-2 | 8 | Layout components, runs table with filtering, run detail (timeline + logs), tasks pages, dashboard with Recharts, settings page, E2E tests |
+| TP-3 | 6 | Schedule API routes, API key routes, schedule UI, API key UI in settings, keyboard shortcuts + global search, unit tests for new features |
+| TP-4 | 2 | Test infrastructure fixes (jsdom mocking), production config verification, landing page |
+
+Each epic was planned by a WorkerMill planner agent, decomposed into parallel stories, executed by specialist AI personas (frontend developer, backend developer, QA engineer), reviewed by a tech lead agent, and consolidated into a single PR.
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Framework | Next.js 16 (App Router, Turbopack) |
+| UI | React 19 + TailwindCSS 4 + Headless UI |
+| Charts | Recharts 3 |
+| Database | PostgreSQL via Prisma 7 ORM (Neon serverless) |
+| Auth | NextAuth v5 |
+| Validation | Zod |
+| Testing | Vitest (unit) + Playwright (E2E) |
+| Hosting | Vercel |
+| CI/CD | GitHub Actions |
+
+## Try the Demo
+
+Visit [taskpulse.workermill.com](https://taskpulse.workermill.com) and click **Try the Demo**, or sign in manually:
+
+| | |
+|-|-|
+| **Email** | demo@workermill.com |
+| **Password** | demo1234 |
+
+The demo account comes pre-configured with projects, tasks, runs with traces and logs, schedules, and API keys.
+
+## Run Locally
+
+```bash
+git clone https://github.com/workermill-examples/taskpulse.git
+cd taskpulse
+npm ci
+```
+
+Create `.env.local`:
+
+```env
+DATABASE_URL="postgresql://user:pass@localhost:5432/taskpulse"
+DIRECT_DATABASE_URL="postgresql://user:pass@localhost:5432/taskpulse"
+NEXTAUTH_SECRET="any-random-string"
+NEXTAUTH_URL="http://localhost:3000"
+AUTH_TRUST_HOST="true"
+SEED_TOKEN="any-random-string"
+```
+
+Set up the database and start:
+
+```bash
+npx prisma generate
+npx prisma db push
+npm run db:seed
+npm run dev
+```
+
+Open [localhost:3000](http://localhost:3000).
+
+---
+
+## API
+
+TaskPulse exposes a RESTful API for programmatic task management. All project endpoints require authentication via API key (`Authorization: Bearer <key>`) or session cookie.
+
+### Task Triggering
+
+```bash
+curl -X POST https://taskpulse.workermill.com/api/trigger \
+  -H "Authorization: Bearer tp_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{"taskId": "...", "input": {"key": "value"}}'
+```
+
+### Key Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/projects/:slug/tasks` | List registered tasks |
+| `POST /api/projects/:slug/runs` | Create a new run |
+| `GET /api/projects/:slug/runs/:id` | Run details with traces |
+| `GET /api/projects/:slug/runs/:id/stream` | SSE log stream |
+| `POST /api/projects/:slug/runs/:id/retry` | Retry a failed run |
+| `POST /api/projects/:slug/runs/:id/cancel` | Cancel a running task |
+| `GET /api/projects/:slug/stats` | Dashboard statistics |
+| `GET /api/health` | Health check |
+
+---
+
+## Project Structure
+
+```
+src/
+  app/                    # Next.js App Router pages
+    api/                  # Server-side API routes
+    [project]/            # Dynamic project routes
+      dashboard/          # KPI cards, charts, status breakdown
+      tasks/              # Task registry and detail pages
+      runs/               # Runs table with filtering + detail view
+      schedules/          # Cron schedule management
+      settings/           # API keys, members, webhooks
+    login/ signup/        # Auth pages
+  components/
+    shared/               # Reusable UI (EmptyState, LoadingSpinner, etc.)
+    layout/               # Header and Sidebar
+    dashboard/            # Charts (Recharts)
+    runs/                 # RunsTable, RunTimeline, RunLogs, TriggerRunDialog
+    tasks/                # TaskCard, TaskConfig
+    schedules/            # ScheduleForm, CronDisplay
+  lib/
+    auth.ts               # NextAuth v5 configuration
+    prisma.ts             # PrismaClient singleton
+    middleware.ts          # Auth & RBAC helpers
+    validations.ts         # Zod schemas
+  hooks/
+    useSSE.ts             # Server-Sent Events hook
+    useKeyboardShortcuts.ts
+prisma/
+  schema.prisma           # Database schema (11 models, 4 enums)
+  seed.ts                 # Demo data seeder
+tests/
+  unit/                   # Vitest unit tests (101 test cases)
+  e2e/                    # Playwright E2E tests
+```
+
+## Database Schema
+
+```
+User ──< ProjectMember >── Project
+                              │
+                              ├──< Task ──< Run ──< Log
+                              │              └──< Trace (self-referential)
+                              ├──< Schedule
+                              ├──< ApiKey
+                              └──< Webhook ──< WebhookEvent
+```
+
+11 models: User, Project, ProjectMember, Task, Run, Log, Trace, Schedule, ApiKey, Webhook, WebhookEvent.
+
+## Development
+
+```bash
+npm run dev          # Start dev server
+npm run lint         # ESLint
+npm run typecheck    # TypeScript check
+npm test             # Unit tests (Vitest)
+npm run test:e2e     # E2E tests (Playwright)
+npm run db:studio    # Prisma Studio
+```
+
+## About WorkerMill
+
+[WorkerMill](https://workermill.com) is an autonomous AI coding platform. Point it at a ticket, and it:
+
+1. **Plans** — Decomposes the task into parallel stories with file targets
+2. **Executes** — Specialist AI personas (frontend dev, backend dev, QA) work in parallel
+3. **Reviews** — Tech lead agent reviews each story for quality
+4. **Ships** — Creates a consolidated PR with all changes
+
+TaskPulse exists to demonstrate that WorkerMill can build and maintain a real application end-to-end. Every commit in this repo's history traces back to a WorkerMill task.
+
+## For AI Agents
+
+If you're an AI worker building on this codebase, see [CLAUDE.md](./CLAUDE.md) for development guidelines, version constraints, and deployment instructions.
+
+## License
+
+MIT

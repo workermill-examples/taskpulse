@@ -271,7 +271,7 @@ function RunsTableContent({ projectSlug, initialData, tasks }: RunsTableProps) {
             <label className="block text-sm font-medium text-gray-300 mb-2">
               Status
             </label>
-            <div className="space-y-2 max-h-32 overflow-y-auto">
+            <div className="space-y-2">
               {statusOptions.map((option) => (
                 <label key={option.value} className="flex items-center">
                   <input

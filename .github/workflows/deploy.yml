@@ -8,6 +8,9 @@ jobs:
   post-deploy:
     name: Post-Deploy Tasks
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -16,27 +19,13 @@ jobs:
           cache: npm
       - run: npm ci
 
-      - name: Run database migrations
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          DIRECT_DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL }}
-        run: npx prisma migrate deploy
-
       - name: Wait for Vercel deploy
         run: sleep 30
 
       - name: Seed demo data
-        run: |
-          response=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
-            https://taskpulse.workermill.com/api/seed \
-            -H "Authorization: Bearer ${{ secrets.SEED_TOKEN }}")
-
-          if [ "$response" = "200" ] || [ "$response" = "409" ]; then
-            echo "Seed successful (HTTP $response)"
-          else
-            echo "Seed failed with HTTP $response"
-            exit 1
-          fi
+        env:
+          OWNER_PASSWORD: ${{ secrets.OWNER_PASSWORD }}
+        run: npx tsx prisma/seed.ts
 
       - name: Smoke test
         run: |

@@ -101,21 +101,20 @@ export default async function SchedulesPage({ params }: SchedulesPageProps) {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-100">Schedules</h1>
-          <p className="text-gray-400 mt-1">
-            {schedules.length} schedule{schedules.length !== 1 ? 's' : ''} configured
-          </p>
-        </div>
-        <SchedulesPageClient
-          schedules={schedules}
-          projectSlug={project}
-          userRole={userRole}
-        />
+      <div>
+        <h1 className="text-2xl font-bold text-gray-100">Schedules</h1>
+        <p className="text-gray-400 mt-1">
+          {schedules.length} schedule{schedules.length !== 1 ? 's' : ''} configured
+        </p>
       </div>
 
-      {/* Schedules List */}
+      {/* Schedules List + Actions */}
+      <SchedulesPageClient
+        schedules={schedules}
+        projectSlug={project}
+        userRole={userRole}
+      />
+
       {schedules.length === 0 && (
         <div className="bg-gray-900 border border-gray-800 rounded-lg p-8">
           <EmptyState

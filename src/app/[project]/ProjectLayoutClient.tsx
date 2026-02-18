@@ -66,7 +66,7 @@ export function ProjectLayoutClient({ project, children }: ProjectLayoutClientPr
           />
 
           {/* Page content */}
-          <main className="flex-1 overflow-auto">
+          <main className="flex-1 overflow-auto p-6 md:p-8">
             {children}
           </main>
         </div>

@@ -12,6 +12,10 @@ export default defineConfig({
       include: ["src/**/*.ts"],
       exclude: ["src/generated/**"],
     },
+    // Configure environment for specific files
+    // environmentMatchGlobs: [
+    //   ["**/hooks.test.ts", "jsdom"]
+    // ],
   },
   resolve: {
     alias: {

@@ -12,8 +12,34 @@ const prisma = new PrismaClient({ adapter });
 async function main() {
   console.log("Starting expanded seed data generation...");
 
-  // 1. Create demo user (idempotent)
-  console.log("Creating demo user...");
+  // 0. Clean up stale test projects
+  const testProject = await prisma.project.findUnique({ where: { slug: "test" } });
+  if (testProject) {
+    await prisma.project.delete({ where: { id: testProject.id } });
+    console.log("✓ Deleted stale 'test' project");
+  }
+
+  // 1. Create owner account (private credentials via OWNER_PASSWORD env var)
+  console.log("Creating owner account...");
+  if (!process.env.OWNER_PASSWORD) {
+    throw new Error("OWNER_PASSWORD env var is required for seeding. Set it in GitHub Secrets or pass it directly.");
+  }
+  const ownerHash = await bcrypt.hash(process.env.OWNER_PASSWORD, 12);
+
+  const ownerUser = await prisma.user.upsert({
+    where: { email: "admin@workermill.com" },
+    update: { passwordHash: ownerHash },
+    create: {
+      email: "admin@workermill.com",
+      name: "Admin",
+      passwordHash: ownerHash,
+    },
+  });
+
+  console.log(`✓ Owner user: ${ownerUser.email} (${ownerUser.id})`);
+
+  // 2. Create read-only demo viewer (public credentials)
+  console.log("Creating demo viewer...");
   const passwordHash = await bcrypt.hash("demo1234", 12);
 
   const demoUser = await prisma.user.upsert({
@@ -26,9 +52,9 @@ async function main() {
     },
   });
 
-  console.log(`✓ Demo user: ${demoUser.email} (${demoUser.id})`);
+  console.log(`✓ Demo viewer: ${demoUser.email} (${demoUser.id})`);
 
-  // 2. Create "Acme Backend Services" project (idempotent)
+  // 3. Create "Acme Backend Services" project (idempotent)
   console.log("Creating demo project...");
   const project = await prisma.project.upsert({
     where: { slug: "acme-backend" },
@@ -50,23 +76,41 @@ async function main() {
 
   console.log(`✓ Project: ${project.name} (${project.id})`);
 
-  // 3. Add demo user as project OWNER (idempotent)
-  const membership = await prisma.projectMember.upsert({
+  // 4. Add owner as project OWNER
+  await prisma.projectMember.upsert({
+    where: {
+      userId_projectId: {
+        userId: ownerUser.id,
+        projectId: project.id,
+      },
+    },
+    update: {},
+    create: {
+      userId: ownerUser.id,
+      projectId: project.id,
+      role: "OWNER",
+    },
+  });
+
+  console.log(`✓ Owner added as project OWNER`);
+
+  // 5. Add demo user as project VIEWER (read-only public account)
+  await prisma.projectMember.upsert({
     where: {
       userId_projectId: {
         userId: demoUser.id,
         projectId: project.id,
       },
     },
-    update: {},
+    update: { role: "VIEWER" },
     create: {
       userId: demoUser.id,
       projectId: project.id,
-      role: "OWNER",
+      role: "VIEWER",
     },
   });
 
-  console.log(`✓ Project membership: ${demoUser.name} as OWNER`);
+  console.log(`✓ Demo user added as project VIEWER (read-only)`);
 
   // 4. Create 5 TaskDefinitions with stepTemplates
   console.log("Creating task definitions...");
@@ -384,7 +428,7 @@ async function main() {
     console.log(`✓ Schedule: ${schedule.name}`);
   }
 
-  // 7. Create 2 API Keys
+  // 7. Create 2 API Keys (graceful — skips if api_keys table not migrated yet)
   console.log("Creating API keys...");
 
   // Generate API keys with bcrypt hashes
@@ -416,52 +460,60 @@ async function main() {
     },
   ];
 
-  for (const keyData of apiKeys) {
-    const keyHash = await bcrypt.hash(keyData.key, 12);
-    const keyPrefix = keyData.key.substring(0, 16); // First 16 chars for efficient lookup
-    const keyPreview = "..." + keyData.key.slice(-4); // Last 4 chars for UI display
+  let apiKeyCount = 0;
+  try {
+    for (const keyData of apiKeys) {
+      const keyHash = await bcrypt.hash(keyData.key, 12);
+      const keyPrefix = keyData.key.substring(0, 16);
+      const keyPreview = "..." + keyData.key.slice(-4);
 
-    // Check if API key already exists by name in this project
-    let apiKey = await prisma.apiKey.findFirst({
-      where: {
-        projectId: project.id,
-        name: keyData.name,
-      },
-    });
-
-    if (!apiKey) {
-      apiKey = await prisma.apiKey.create({
-        data: {
-          name: keyData.name,
-          keyHash,
-          keyPrefix,
-          keyPreview,
-          permissions: keyData.permissions,
-          expiresAt: keyData.expiresAt,
+      let apiKey = await prisma.apiKey.findFirst({
+        where: {
           projectId: project.id,
-          createdBy: demoUser.id,
+          name: keyData.name,
         },
       });
-    }
 
-    console.log(`✓ API Key: ${apiKey.name} (${keyData.key})`);
+      if (!apiKey) {
+        apiKey = await prisma.apiKey.create({
+          data: {
+            name: keyData.name,
+            keyHash,
+            keyPrefix,
+            keyPreview,
+            permissions: keyData.permissions,
+            expiresAt: keyData.expiresAt,
+            projectId: project.id,
+            createdBy: ownerUser.id,
+          },
+        });
+      }
+
+      console.log(`✓ API Key: ${apiKey.name} (${keyData.key.slice(0, 12)}...)`);
+      apiKeyCount++;
+    }
+  } catch (err: any) {
+    console.warn("⚠️ API key seeding skipped (table may not be fully migrated):", err.message);
   }
 
   console.log("\n🎉 Expanded seed data generation completed!");
   console.log(`
 📊 Summary:
-  • User: demo@workermill.com / demo1234
+  • Owner: admin@workermill.com (password from OWNER_PASSWORD env)
+  • Demo viewer: demo@workermill.com / demo1234 (read-only)
   • Project: Acme Backend Services (acme-backend)
   • Tasks: ${createdTasks.length} task definitions
   • Runs: ${allRuns.length} runs (${allRuns.filter(r => r.status === 'COMPLETED').length} completed, ${allRuns.filter(r => r.status === 'FAILED').length} failed, ${allRuns.filter(r => r.status === 'EXECUTING').length} executing, ${allRuns.filter(r => r.status === 'QUEUED').length} queued)
   • Schedules: ${schedules.length} scheduled tasks
-  • API Keys: ${apiKeys.length} API keys
+  • API Keys: ${apiKeyCount} API keys
   `);
 
-  // Display API keys for reference
-  console.log("🔑 API Keys for testing:");
-  console.log(`  Production: ${productionKey}`);
-  console.log(`  Staging: ${stagingKey}`);
+  // Display API key prefixes for reference (full keys are only shown at creation time in the UI)
+  if (apiKeyCount > 0) {
+    console.log("🔑 API Keys created (truncated):");
+    console.log(`  Production: ${productionKey.slice(0, 12)}...`);
+    console.log(`  Staging: ${stagingKey.slice(0, 12)}...`);
+  }
 }
 
 main()

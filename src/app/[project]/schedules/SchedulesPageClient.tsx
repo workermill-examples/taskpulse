@@ -180,18 +180,20 @@ export default function SchedulesPageClient({
     <>
       {/* Create Schedule Button */}
       {canCreateSchedule && (
-        <button
-          onClick={() => setIsCreateDialogOpen(true)}
-          className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
-        >
-          <PlusIcon className="w-4 h-4" />
-          Create Schedule
-        </button>
+        <div className="flex justify-end">
+          <button
+            onClick={() => setIsCreateDialogOpen(true)}
+            className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+          >
+            <PlusIcon className="w-4 h-4" />
+            Create Schedule
+          </button>
+        </div>
       )}
 
       {/* Schedules List */}
       {schedules.length > 0 && (
-        <div className="grid gap-4 mt-6">
+        <div className="grid gap-4">
           {schedules.map((schedule) => (
             <div
               key={schedule.id}

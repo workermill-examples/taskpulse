@@ -61,8 +61,7 @@ export default async function DashboardPage({
   const stats = await fetchDashboardStats(projectSlug);
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100 p-8">
-      <div className="max-w-7xl mx-auto">
+    <div className="max-w-7xl mx-auto">
         <h1 className="text-3xl font-bold text-gray-100 mb-8">Dashboard</h1>
 
         {/* Summary Statistics Cards */}
@@ -175,6 +174,5 @@ export default async function DashboardPage({
         {/* Charts */}
         <Charts stats={stats} />
       </div>
-    </div>
   );
 }
